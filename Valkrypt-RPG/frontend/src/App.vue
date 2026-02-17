@@ -1,0 +1,7 @@
+<template>
+  <router-view />
+</template>
+
+<style>
+body { margin: 0; padding: 0; background: #050505; color: white; overflow-x: hidden; }
+</style>
