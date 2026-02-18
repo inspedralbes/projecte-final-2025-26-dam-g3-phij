@@ -3,28 +3,26 @@ class User {
     static collection() {
         return getDB().collection('users');
     }
-    static async create(userData) {
-        const result = await this.collection().insertOne({
-            username: userData.username,
-            email: userData.email,
-            password: userData.password, 
-            isVerified: false,
-            verificationCode: userData.verificationCode, 
-            friends: [],
-            createdAt: new Date(),
-            saveData: {} 
-        });
-        return result;
-    }
+    // METODOS
     static async findByUsername(username) {
         return await this.collection().findOne({ username });
     }
-    static async verify(username, code) {
-        const result = await this.collection().updateOne(
-            { username, verificationCode: code },
-            { $set: { isVerified: true }, $unset: { verificationCode: "" } }
-        );
-        return result.modifiedCount > 0;
+
+    static async findByEmail(email) {
+        return await this.collection().findOne({ email: email.toLowerCase() });
+    }
+    static async create(userData) {
+        return await this.collection().insertOne({
+            username: userData.username,
+            email: userData.email.toLowerCase(),
+            password: userData.password, 
+            verified: userData.verified || false,
+            verificationCode: userData.verificationCode || null,
+            createdAt: new Date(),
+            saveData: {},
+            friends: []
+        });
     }
 }
+
 module.exports = User;

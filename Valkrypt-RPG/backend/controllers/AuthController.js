@@ -29,13 +29,9 @@ class AuthController {
             if (existingUser || existingEmail) {
                 return res.status(409).json({ error: "El usuario o email ya están registrados." });
             }
-
-            //Encripta y genera el codigo de verificacion que llegara al gmail
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
             const vCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-            //Crear el usuario
             const result = await User.create({
                 username,
                 email: email.toLowerCase(),
@@ -43,8 +39,6 @@ class AuthController {
                 verificationCode: vCode,
                 verified: false
             });
-
-            //Envia el correo
             await transporter.sendMail({
                 from: `"Valkrypt RPG" <${process.env.EMAIL_USER}>`,
                 to: email,
@@ -75,7 +69,6 @@ class AuthController {
             if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
             if (String(user.verificationCode) === String(code)) {
-                // Actualizamos el usuario a verificado
                 await User.collection().updateOne(
                     { username },
                     { $set: { verified: true }, $unset: { verificationCode: "" } }

@@ -31,7 +31,7 @@ import { useRouter } from 'vue-router';
 const code = ref('');
 const router = useRouter();
 
-const handleVerify = async () => {w
+const handleVerify = async () => {
   const username = localStorage.getItem('temp_user');
 
   if (!username) {
