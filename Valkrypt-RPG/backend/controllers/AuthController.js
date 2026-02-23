@@ -2,16 +2,9 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Configuración de Nodemailer
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+const resend = new Resend('re_9wbZB2wt_HtYLDCAMY4Dk78b2cGwGJXEF');
 
 class AuthController {
 
@@ -39,8 +32,9 @@ class AuthController {
                 verificationCode: vCode,
                 verified: false
             });
-            await transporter.sendMail({
-                from: `"Valkrypt RPG" <${process.env.EMAIL_USER}>`,
+
+            await resend.emails.send({
+                from: 'Valkrypt <onboarding@resend.dev>',
                 to: email,
                 subject: 'Verificación de Cuenta - Valkrypt',
                 html: `<div style="background:#000; color:#d4af37; padding:20px; text-align:center; border:2px solid #d4af37;">
@@ -61,6 +55,7 @@ class AuthController {
             res.status(500).json({ error: "Error interno del servidor." });
         }
     }
+
     static async verify(req, res) {
         try {
             const { username, code } = req.body;
@@ -82,7 +77,6 @@ class AuthController {
         }
     }
 
-    // --- LOGIN ---
     static async login(req, res) {
         const { username, password } = req.body;
 
@@ -129,7 +123,6 @@ class AuthController {
         }
     }
 
-    // --- LOGOUT ---
     static async logout(req, res) {
         try {
             const userId = req.user.id; 
