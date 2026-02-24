@@ -4,6 +4,7 @@ import LoginView from './views/LoginView.vue'
 import RegisterView from './views/RegisterView.vue' 
 import VerifyView from './views/VerifyView.vue'
 import UserPage from './views/UserPage.vue'
+import GameView from './views/GameView.vue'
 
 const routes = [
   { 
@@ -30,6 +31,11 @@ const routes = [
     path: '/UserPage',
     name: 'userpage', 
     component: UserPage 
+  },
+  {
+    path: '/game',
+    name: 'game',
+    component: GameView
   }
 ]
 
