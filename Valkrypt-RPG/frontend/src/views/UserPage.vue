@@ -11,31 +11,38 @@
     </nav>
 
     <main class="content">
-      <header class="section-header">
-        <h1>MIS AVENTURAS</h1>
-        <p>Continúa tu leyenda o forja una nueva.</p>
-      </header>
+      <template v-if="!isCreating">
+        <header class="section-header">
+          <h1>MIS AVENTURAS</h1>
+          <p>Continúa tu leyenda o forja una nueva.</p>
+        </header>
 
-      <section class="stories-grid">
-        <div class="story-card saved-story" v-for="story in savedStories" :key="story.id">
-          <div class="card-overlay">
-            <h3>{{ story.title }}</h3>
-            <span class="last-played">Visto: {{ story.date }}</span>
-            <button class="btn-play" @click="resumeGame(story.id)">CONTINUAR</button>
+        <section class="stories-grid">
+          <div class="story-card saved-story" v-for="story in savedStories" :key="story.id">
+            <div class="card-overlay">
+              <h3>{{ story.title }}</h3>
+              <span class="last-played">Visto: {{ story.date }}</span>
+              <button class="btn-play" @click="resumeGame(story.id)">CONTINUAR</button>
+            </div>
           </div>
-        </div>
 
-        <div class="story-card create-story" @click="startNewGame">
-          <div class="plus-icon">+</div>
-          <p>NUEVA HISTORIA</p>
-        </div>
-      </section>
+          <div class="story-card create-story" @click="isCreating = true">
+            <div class="plus-icon">+</div>
+            <p>NUEVA HISTORIA</p>
+          </div>
+        </section>
 
-      <section class="friends-footer">
-        <button class="btn-add-friends" @click="router.push('/friends')">
-          + AGREGAR AMIGOS
-        </button>
-      </section>
+        <section class="friends-footer">
+          <button class="btn-add-friends" @click="router.push('/friends')">
+            + AGREGAR AMIGOS
+          </button>
+        </section>
+      </template>
+
+      <CharacterSelect 
+        v-else 
+        @cancel="isCreating = false" 
+      />
     </main>
   </div>
 </template>
@@ -43,10 +50,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import CharacterSelect from './CharacterSelect.vue';
 
 const router = useRouter();
 const userInitial = ref('?');
-
+const isCreating = ref(false);
 
 const savedStories = ref([
   { id: 1, title: 'El Despertar del Caos', date: '12/02' },
@@ -54,21 +62,13 @@ const savedStories = ref([
 ]);
 
 onMounted(() => {
-
   const userData = JSON.parse(localStorage.getItem('user'));
   if (userData && userData.username) {
     userInitial.value = userData.username.charAt(0).toUpperCase();
   }
 });
 
-const resumeGame = (id) => {
-  console.log("Cargando historia:", id);
-  router.push('/game');
-};
-
-const startNewGame = () => {
-  router.push('/game');
-};
+const resumeGame = (id) => router.push('/game');
 </script>
 
 <style scoped>
