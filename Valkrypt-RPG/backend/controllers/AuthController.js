@@ -2,16 +2,6 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-
-// Configuración de Nodemailer
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
 
 class AuthController {
 
@@ -29,30 +19,21 @@ class AuthController {
             if (existingUser || existingEmail) {
                 return res.status(409).json({ error: "El usuario o email ya están registrados." });
             }
+
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
-            const vCode = Math.floor(100000 + Math.random() * 900000).toString();
+
             const result = await User.create({
                 username,
                 email: email.toLowerCase(),
                 password: hashedPassword,
-                verificationCode: vCode,
-                verified: false
-            });
-            await transporter.sendMail({
-                from: `"Valkrypt RPG" <${process.env.EMAIL_USER}>`,
-                to: email,
-                subject: 'Verificación de Cuenta - Valkrypt',
-                html: `<div style="background:#000; color:#d4af37; padding:20px; text-align:center; border:2px solid #d4af37;">
-                        <h1>VALKRYPT</h1>
-                        <p>Introduce este código para despertar en el reino:</p>
-                        <h2 style="font-size:30px; letter-spacing:5px;">${vCode}</h2>
-                      </div>`
+                verified: true,
+                verificationCode: null
             });
 
             res.status(201).json({ 
                 success: true, 
-                message: "Revisa tu correo para verificar tu cuenta.",
+                message: "Registro completado con éxito.",
                 userId: result.insertedId 
             });
 
@@ -61,28 +42,15 @@ class AuthController {
             res.status(500).json({ error: "Error interno del servidor." });
         }
     }
+
     static async verify(req, res) {
         try {
-            const { username, code } = req.body;
-            const user = await User.findByUsername(username);
-
-            if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
-
-            if (String(user.verificationCode) === String(code)) {
-                await User.collection().updateOne(
-                    { username },
-                    { $set: { verified: true }, $unset: { verificationCode: "" } }
-                );
-                res.json({ success: true, message: "Cuenta verificada con éxito" });
-            } else {
-                res.status(400).json({ error: "Código incorrecto" });
-            }
+            res.json({ success: true, message: "Cuenta verificada automáticamente." });
         } catch (error) {
-            res.status(500).json({ error: "Error en la verificación" });
+            res.status(500).json({ error: "Error en la verificación." });
         }
     }
 
-    // --- LOGIN ---
     static async login(req, res) {
         const { username, password } = req.body;
 
@@ -129,7 +97,6 @@ class AuthController {
         }
     }
 
-    // --- LOGOUT ---
     static async logout(req, res) {
         try {
             const userId = req.user.id; 

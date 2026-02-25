@@ -5,6 +5,7 @@ import RegisterView from './views/RegisterView.vue'
 import VerifyView from './views/VerifyView.vue'
 import UserPage from './views/UserPage.vue'
 import GameView from './views/GameView.vue'
+import CharacterSelect from './views/CharacterSelect.vue'
 
 const routes = [
   { 
@@ -28,9 +29,14 @@ const routes = [
     component: VerifyView 
   },
   { 
-    path: '/UserPage',
+    path: '/userpage', 
     name: 'userpage', 
     component: UserPage 
+  },
+  {
+    path: '/select',
+    name: 'character-select',
+    component: CharacterSelect
   },
   {
     path: '/game',
@@ -43,5 +49,16 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
+
+router.beforeEach((to, from, next) => {
+  const publicPages = ['/login', '/register', '/', '/verify'];
+  const authRequired = !publicPages.includes(to.path);
+  const loggedIn = localStorage.getItem('token');
+
+  if (authRequired && !loggedIn) {
+    return next('/login');
+  }
+  next();
+});
 
 export default router

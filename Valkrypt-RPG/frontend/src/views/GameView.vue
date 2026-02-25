@@ -1,349 +1,334 @@
 <template>
-  <div class="game-page">
-    <nav class="game-nav">
-      <button class="nav-back" @click="router.push('/UserPage')">VOLVER</button>
-      <div class="nav-brand">VALKRYPT | NARRATIVA EN VIVO</div>
+  <div class="game-viewport">
+    <div class="fx-layer bg-image" :style="{ backgroundImage: `url(${currentBackground})` }"></div>
+    <div class="fx-layer vignette"></div>
+    <div class="fx-layer grain"></div>
+
+    <nav class="hud-top">
+      <div class="nav-left">
+        <button class="btn-icon-menu" @click="toggleMenu">
+          <i class="fas fa-bars"></i> <span>MENÚ</span>
+        </button>
+      </div>
+
+      <div class="nav-center">
+        <div class="location-tag">
+          <i class="fas fa-map-marker-alt"></i>
+          <span>{{ campaignTitle }} - {{ locationName }}</span>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <button class="btn-friends" @click="toggleFriends">
+          <i class="fas fa-users"></i>
+          <span class="online-indicator">3</span>
+          <span>ALIANZAS</span>
+        </button>
+      </div>
     </nav>
 
-    <main class="game-main">
-      <section ref="storyContainer" class="story-container">
-        <article
-          v-for="(message, index) in storyMessages"
-          :key="`${message.role}-${index}`"
-          class="story-message"
-          :class="message.role"
-        >
-          <header class="message-role">
-            {{ message.role === 'player' ? 'TÚ' : 'NARRADOR' }}
-          </header>
-          <p class="message-text">{{ message.text }}</p>
-        </article>
-
-        <div v-if="isGenerating" class="streaming-status">
-          El narrador está tejiendo el siguiente fragmento...
+    <div class="main-layout">
+      <aside class="party-sidebar">
+        <div v-for="hero in party" :key="hero.id" class="hero-card" :class="{ 'hero-dead': hero.hp <= 0 }">
+          <div class="hero-avatar">
+            <span class="icon">{{ hero.icon }}</span>
+            <div class="hp-bar">
+              <div class="hp-fill" :style="{ width: (hero.hp / hero.maxHp) * 100 + '%' }"></div>
+            </div>
+          </div>
+          <div class="hero-info">
+            <span class="hero-name">{{ hero.name }}</span>
+            <span class="hero-role">{{ hero.role }}</span>
+            <div class="hero-stats-mini">
+              <span>HP {{ hero.hp }}/{{ hero.maxHp }}</span>
+            </div>
+          </div>
         </div>
-      </section>
+      </aside>
 
-      <form class="action-form" @submit.prevent="submitAction">
-        <label for="action-input">Tu acción</label>
-        <textarea
-          id="action-input"
-          v-model="playerAction"
-          class="action-input"
-          placeholder="Ejemplo: avanzo sigilosamente por el pasillo y observo los símbolos del altar."
-          rows="3"
-          :disabled="isGenerating"
-        />
-
-        <div class="form-footer">
-          <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
-          <button class="send-btn" type="submit" :disabled="isGenerating || !playerAction.trim()">
-            {{ isGenerating ? 'GENERANDO...' : 'ENVIAR ACCIÓN' }}
-          </button>
+      <main class="game-stage">
+        <div class="log-container" ref="logContainer">
+          <div v-for="(entry, index) in history" :key="index" class="log-entry" :class="entry.type">
+            <p v-if="entry.type === 'narrative'" class="text-narrative">{{ entry.content }}</p>
+            <div v-if="entry.type === 'combat'" class="text-combat">
+              <i class="fas fa-skull"></i> {{ entry.content }}
+            </div>
+          </div>
         </div>
-      </form>
-    </main>
+
+        <footer class="action-bar">
+          <div class="action-grid">
+            <button @click="handleAction('explorar')" class="btn-action">EXPLORAR</button>
+            <button @click="handleAction('descansar')" class="btn-action">DESCANSAR</button>
+            <button @click="handleAction('atacar')" class="btn-action danger">ATACAR</button>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <transition name="slide-right">
+      <div v-if="showFriends" class="friends-overlay">
+        <header>
+          <h3>ALIANZAS ACTIVAS</h3>
+          <button @click="showFriends = false">✕</button>
+        </header>
+        <div class="friends-list">
+          <div class="friend-item online">
+            <div class="f-avatar">MA</div>
+            <div class="f-info"><strong>Marco_Dam</strong> <small>En Bastión Real</small></div>
+          </div>
+          <div class="friend-item online">
+            <div class="f-avatar">EL</div>
+            <div class="f-info"><strong>Elena_Valk</strong> <small>En las Minas</small></div>
+          </div>
+          <div class="friend-item offline">
+            <div class="f-avatar">JO</div>
+            <div class="f-info"><strong>Jordi_66</strong> <small>Desconectado</small></div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
+const route = useRoute();
 const router = useRouter();
-const storyContainer = ref(null);
 
-const worldSeed = ref(
-  'Valkrypt es un reino en decadencia donde ruinas antiguas, magia prohibida y juramentos rotos dominan la noche.'
-);
-const playerAction = ref('');
-const isGenerating = ref(false);
-const errorMessage = ref('');
-const storyMessages = ref([]);
 
-function buildApiHistory() {
-  return storyMessages.value
-    .filter((message) => message && typeof message.text === 'string' && message.text.trim())
-    .map((message) => ({
-      role: message.role === 'player' ? 'user' : 'model',
-      text: message.text,
-    }));
-}
+const showFriends = ref(false);
+const showMenu = ref(false);
 
-async function scrollStoryToBottom() {
-  await nextTick();
-  const el = storyContainer.value;
-  if (el) el.scrollTop = el.scrollHeight;
-}
 
-async function streamNarration(bodyStream, targetMessage) {
-  const reader = bodyStream.getReader();
-  const decoder = new TextDecoder();
+const campaignTitle = ref("La Sombra de Piedraprofunda");
+const locationName = ref("Taberna El Perro Ciego");
+const currentBackground = ref("https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=1200");
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+const party = ref([
+  { id: 1, name: 'Kaelen', role: 'Guerrero', hp: 45, maxHp: 50, icon: '⚔️' },
+  { id: 2, name: 'Vax', role: 'Pícaro', hp: 22, maxHp: 30, icon: '🗡️' },
+  { id: 3, name: 'Elara', role: 'Maga', hp: 18, maxHp: 25, icon: '🩸' },
+  { id: 4, name: 'Sorin', role: 'Clérigo', hp: 28, maxHp: 35, icon: '⚖️' }
+]);
 
-    const chunk = decoder.decode(value, { stream: true });
-    if (chunk) {
-      targetMessage.text += chunk;
-      await scrollStoryToBottom();
-    }
+const history = ref([
+  { type: 'narrative', content: 'La lluvia golpea el tejado de la taberna. El Rey Alaric busca algo... y vuestras almas están marcadas.' },
+  { type: 'combat', content: '¡Un asesino de la Guardia de Hierro emerge de las sombras!' }
+]);
+
+const toggleFriends = () => showFriends.value = !showFriends.value;
+const toggleMenu = () => alert("Menú: Guardar / Ajustes / Salir");
+
+const handleAction = (type) => {
+  history.value.push({ type: 'narrative', content: `Decides ${type} la zona con cautela...` });
+};
+
+onMounted(() => {
+
+  const savedSession = JSON.parse(localStorage.getItem('valkrypt_current_game'));
+  if (savedSession) {
+    campaignTitle.value = savedSession.campaignTitle;
+    party.value = savedSession.party.map(p => ({ ...p, hp: 30, maxHp: 30 })); 
   }
-}
-
-async function submitAction(initialAction) {
-  if (isGenerating.value) return;
-
-  const action = (typeof initialAction === 'string' ? initialAction : playerAction.value).trim();
-  if (!action) return;
-
-  errorMessage.value = '';
-  if (typeof initialAction !== 'string') playerAction.value = '';
-
-  const history = buildApiHistory();
-  storyMessages.value.push({ role: 'player', text: action });
-  const narratorMessage = { role: 'narrator', text: '' };
-  storyMessages.value.push(narratorMessage);
-
-  isGenerating.value = true;
-  await scrollStoryToBottom();
-
-  try {
-    const response = await fetch('/api/narrative/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerAction: action,
-        worldSeed: worldSeed.value,
-        storyHistory: history,
-      }),
-    });
-
-    if (!response.ok) {
-      let backendMessage = 'No se pudo generar la narrativa.';
-      try {
-        const errorData = await response.json();
-        backendMessage = errorData.error || backendMessage;
-      } catch (_) {
-        // Si no llega JSON, mantenemos el mensaje por defecto.
-      }
-      throw new Error(backendMessage);
-    }
-
-    if (!response.body) {
-      throw new Error('El navegador no soporta streaming en esta petición.');
-    }
-
-    await streamNarration(response.body, narratorMessage);
-
-    if (!narratorMessage.text.trim()) {
-      narratorMessage.text = 'El narrador guarda silencio. Prueba con una acción distinta.';
-    }
-  } catch (error) {
-    errorMessage.value = error.message || 'Error desconocido al contactar con Gemini.';
-    narratorMessage.text = `Error: ${errorMessage.value}`;
-  } finally {
-    isGenerating.value = false;
-    await scrollStoryToBottom();
-  }
-}
-
-async function startNewAdventure() {
-  if (storyMessages.value.length > 0) return;
-
-  await submitAction(
-    'Comienza una aventura nueva. Presenta la escena inicial, una amenaza inmediata y 3 opciones para actuar.'
-  );
-}
-
-onMounted(async () => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    router.replace('/login');
-    return;
-  }
-
-  await startNewAdventure();
 });
 </script>
 
-<style scoped>
-.game-page {
-  min-height: 100vh;
-  background: radial-gradient(circle at top, #220707 0%, #070707 55%, #030303 100%);
-  color: #e7e7e7;
-  font-family: 'Cinzel', serif;
+<style scoped lang="scss">
+$gold: #c5a059;
+$dark-card: rgba(15, 15, 15, 0.9);
+$crimson: #8a1c1c;
+
+.game-viewport {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  color: #eee;
+  overflow: hidden;
+  position: relative;
   display: flex;
   flex-direction: column;
 }
 
-.game-nav {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 24px;
-  border-bottom: 1px solid #3e2a00;
-  background: rgba(0, 0, 0, 0.85);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  &.bg-image { background-size: cover; background-position: center; opacity: 0.4; }
+  &.vignette { background: radial-gradient(circle, transparent 30%, #000 100%); }
+  &.grain { background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.05; }
 }
 
-.nav-back {
-  border: 1px solid #d4af37;
-  background: transparent;
-  color: #d4af37;
-  padding: 8px 14px;
-  cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 1px;
-}
-
-.nav-back:hover {
-  background: #d4af37;
-  color: #080808;
-}
-
-.nav-brand {
-  color: #d4af37;
-  letter-spacing: 1px;
-  font-size: 0.9rem;
-}
-
-.game-main {
-  width: min(980px, 92vw);
-  margin: 24px auto 32px;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 20px;
-  flex: 1;
-}
-
-.story-container {
-  border: 1px solid #2e2e2e;
-  background: rgba(7, 7, 7, 0.92);
-  border-radius: 8px;
-  padding: 18px;
-  overflow-y: auto;
-  min-height: 48vh;
-  max-height: 62vh;
-}
-
-.story-message {
-  margin-bottom: 14px;
-  padding: 14px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
-
-.story-message.player {
-  background: rgba(212, 175, 55, 0.12);
-  border: 1px solid rgba(212, 175, 55, 0.36);
-}
-
-.story-message.narrator {
-  background: rgba(138, 11, 11, 0.16);
-  border: 1px solid rgba(138, 11, 11, 0.42);
-}
-
-.message-role {
-  font-size: 0.72rem;
-  letter-spacing: 2px;
-  color: #d4af37;
-  margin-bottom: 6px;
-}
-
-.message-text {
-  margin: 0;
-}
-
-.streaming-status {
-  margin-top: 8px;
-  color: #b6b6b6;
-  font-size: 0.85rem;
-}
-
-.action-form {
-  border: 1px solid #2e2e2e;
-  background: rgba(0, 0, 0, 0.72);
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.action-form label {
-  display: block;
-  margin-bottom: 8px;
-  color: #d4af37;
-  font-size: 0.78rem;
-  letter-spacing: 2px;
-}
-
-.action-input {
-  width: 100%;
-  resize: vertical;
-  min-height: 86px;
-  background: #141414;
-  color: #f0f0f0;
-  border: 1px solid #3b3b3b;
-  border-radius: 6px;
-  padding: 12px;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-
-.action-input:focus {
-  outline: none;
-  border-color: #d4af37;
-}
-
-.form-footer {
-  margin-top: 12px;
+.hud-top {
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(0,0,0,1), transparent);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 14px;
+  padding: 0 2rem;
+  z-index: 10;
+  border-bottom: 1px solid rgba($gold, 0.2);
+
+  .nav-center .location-tag {
+    font-family: 'Cinzel', serif;
+    color: $gold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 1px;
+  }
 }
 
-.error-text {
-  color: #ff9f9f;
-  font-size: 0.85rem;
-}
-
-.send-btn {
-  padding: 10px 18px;
-  border: 1px solid #d4af37;
-  background: #8a0b0b;
+.btn-icon-menu, .btn-friends {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba($gold, 0.3);
   color: #fff;
+  padding: 8px 15px;
   cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 1px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &:hover { background: rgba($gold, 0.2); }
 }
 
-.send-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.online-indicator {
+  background: #2ecc71;
+  color: black;
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: bold;
 }
 
-.send-btn:not(:disabled):hover {
-  background: #a60f0f;
+
+.main-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  position: relative;
+  z-index: 5;
+  height: calc(100vh - 60px);
 }
 
-@media (max-width: 760px) {
-  .game-main {
-    width: 94vw;
-    margin-top: 14px;
+
+.party-sidebar {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  border-right: 1px solid rgba($gold, 0.1);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.hero-card {
+  background: $dark-card;
+  border: 1px solid #333;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  border-radius: 4px;
+  transition: 0.3s;
+  
+  &:hover { border-color: $gold; transform: translateX(5px); }
+
+  .hero-avatar {
+    width: 50px;
+    .icon { font-size: 2rem; display: block; text-align: center; }
   }
 
-  .story-container {
-    min-height: 52vh;
-    max-height: 60vh;
+  .hp-bar {
+    width: 100%;
+    height: 4px;
+    background: #222;
+    margin-top: 8px;
+    .hp-fill { height: 100%; background: $crimson; transition: 0.5s; }
   }
 
-  .form-footer {
-    flex-direction: column;
-    align-items: stretch;
+  .hero-name { font-family: 'Cinzel', serif; display: block; color: $gold; font-size: 0.9rem; }
+  .hero-role { font-size: 0.7rem; color: #888; text-transform: uppercase; }
+  .hero-stats-mini { font-size: 0.7rem; margin-top: 5px; color: #bbb; }
+}
+
+
+.game-stage {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.log-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background: rgba(0,0,0,0.3);
+  mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+
+  .text-narrative { font-size: 1.1rem; line-height: 1.6; color: #ccc; }
+  .text-combat { color: #ff6b6b; font-weight: bold; padding: 10px; background: rgba(138, 28, 28, 0.1); border-left: 3px solid $crimson; }
+}
+
+
+.action-bar {
+  height: 120px;
+  padding: 20px;
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    max-width: 800px;
+    margin: 0 auto;
   }
 }
+
+.btn-action {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #444;
+  color: #fff;
+  padding: 15px;
+  font-family: 'Cinzel', serif;
+  cursor: pointer;
+  transition: 0.3s;
+  &:hover { background: $gold; color: #000; border-color: $gold; }
+  &.danger:hover { background: $crimson; color: #fff; border-color: $crimson; }
+}
+
+
+.friends-overlay {
+  position: absolute;
+  right: 0; top: 60px; bottom: 0;
+  width: 300px;
+  background: #0a0a0a;
+  border-left: 1px solid $gold;
+  z-index: 100;
+  padding: 20px;
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+    h3 { font-family: 'Cinzel', serif; color: $gold; font-size: 0.9rem; }
+    button { background: none; border: none; color: #fff; cursor: pointer; }
+  }
+}
+
+.friend-item {
+  display: flex; gap: 10px; margin-bottom: 15px; align-items: center;
+  opacity: 0.6;
+  &.online { opacity: 1; .f-avatar { border-color: #2ecc71; } }
+  .f-avatar { width: 35px; height: 35px; background: #222; border: 1px solid #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+  .f-info { strong { display: block; font-size: 0.85rem; } small { color: $gold; font-size: 0.7rem; } }
+}
+
+.slide-right-enter-active, .slide-right-leave-active { transition: transform 0.3s ease; }
+.slide-right-enter-from, .slide-right-leave-to { transform: translateX(100%); }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: #333; }
 </style>
