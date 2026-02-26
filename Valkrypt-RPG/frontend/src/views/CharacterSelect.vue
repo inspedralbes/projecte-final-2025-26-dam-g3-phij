@@ -252,7 +252,7 @@ $dark-card: rgba(10, 10, 10, 0.9);
     font-size: 1.5rem;
     &.filled { border: 1px solid $gold; color: $gold; }
   }
-}
+} 
 
 .btn-start-adventure {
   width: 100%;

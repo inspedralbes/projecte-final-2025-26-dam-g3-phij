@@ -22,7 +22,6 @@ class AuthController {
 
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
-
             const result = await User.create({
                 username,
                 email: email.toLowerCase(),
@@ -33,7 +32,7 @@ class AuthController {
 
             res.status(201).json({ 
                 success: true, 
-                message: "Registro completado con éxito.",
+                message: "Registro completado con éxito. Ya puedes iniciar sesión.",
                 userId: result.insertedId 
             });
 
@@ -45,9 +44,9 @@ class AuthController {
 
     static async verify(req, res) {
         try {
-            res.json({ success: true, message: "Cuenta verificada automáticamente." });
+            res.json({ success: true, message: "La cuenta no requiere verificación manual." });
         } catch (error) {
-            res.status(500).json({ error: "Error en la verificación." });
+            res.status(500).json({ error: "Error en el proceso de verificación." });
         }
     }
 
@@ -57,16 +56,16 @@ class AuthController {
         try {
             const user = await User.findByUsername(username);
             if (!user) {
-                return res.status(401).json({ error: "Usuario no encontrado." });
+                return res.status(401).json({ error: "Credenciales inválidas." });
             }
 
-            if (!user.verified) {
-                return res.status(403).json({ error: "Debes verificar tu cuenta antes de entrar." });
+            if (user.verified === false) {
+                await User.updateVerification(user._id, true);
             }
 
             const validPass = await bcrypt.compare(password, user.password);
             if (!validPass) {
-                return res.status(401).json({ error: "Contraseña incorrecta." });
+                return res.status(401).json({ error: "Credenciales inválidas." });
             }
 
             try {
@@ -93,6 +92,7 @@ class AuthController {
             });
 
         } catch (error) {
+            console.error("Error en login:", error);
             res.status(500).json({ error: "Error de autenticación." });
         }
     }
@@ -103,6 +103,7 @@ class AuthController {
             await Session.end(userId);
             res.json({ success: true, message: "Sesión cerrada correctamente." });
         } catch (error) {
+            console.error("Error en logout:", error);
             res.status(500).json({ error: "Error al cerrar sesión." });
         }
     }
