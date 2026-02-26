@@ -6,6 +6,8 @@ import VerifyView from './views/VerifyView.vue'
 import UserPage from './views/UserPage.vue'
 import GameView from './views/GameView.vue'
 import CharacterSelect from './views/CharacterSelect.vue'
+import RoomLobby from './views/RoomLobby.vue'
+import GameRoom from './views/GameRoom.vue'
 
 const routes = [
   { 
@@ -42,6 +44,21 @@ const routes = [
     path: '/game',
     name: 'game',
     component: GameView
+  },
+  {
+    path: '/friends',
+    name: 'friends',
+    component: () => import('./views/FriendsView.vue')
+  },
+  {
+    path: '/rooms',
+    name: 'RoomLobby',
+    component: RoomLobby
+  },
+  {
+    path: '/rooms/:roomCode',
+    name: 'GameRoom',
+    component: GameRoom
   }
 ]
 

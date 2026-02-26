@@ -121,6 +121,7 @@ const start = () => {
 </script>
 
 <style scoped lang="scss">
+@use "sass:color";
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
 
 $gold: #c5a059;
@@ -264,7 +265,7 @@ $dark-card: rgba(10, 10, 10, 0.9);
   font-weight: bold;
   cursor: pointer;
   &:disabled { background: #222; color: #444; cursor: not-allowed; }
-  &:hover:not(:disabled) { background: lighten($gold, 15%); }
+  &:hover:not(:disabled) { background: color.adjust($gold, $lightness: 15%); }
 }
 
 .fade-in { animation: fadeIn 0.4s ease-out forwards; }
