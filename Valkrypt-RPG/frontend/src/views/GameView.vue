@@ -1,88 +1,112 @@
 <template>
   <div class="game-viewport">
-    <div class="fx-layer bg-image" :style="{ backgroundImage: `url(${currentBackground})` }"></div>
+    <div class="fx-layer bg-image" :style="{ backgroundImage: `url(${currentBackground || '/assets/default-bg.jpg'})` }"></div>
     <div class="fx-layer vignette"></div>
     <div class="fx-layer grain"></div>
+    <div class="fx-layer scanlines"></div>
 
     <nav class="hud-top">
       <div class="nav-left">
-        <button class="btn-icon-menu" @click="toggleMenu">
-          <i class="fas fa-bars"></i> <span>MENÚ</span>
+        <button class="btn-hud main-menu-btn" @click="toggleMenu">
+          <i class="fas fa-bars"></i>
+          <span class="btn-label">MENÚ</span>
         </button>
       </div>
 
       <div class="nav-center">
-        <div class="location-tag">
-          <i class="fas fa-map-marker-alt"></i>
-          <span>{{ campaignTitle }} - {{ locationName }}</span>
+        <div class="location-display">
+          <div class="campaign-name">{{ campaignTitle }}</div>
+          <div class="location-tag">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>{{ locationName.toUpperCase() }}</span>
+          </div>
         </div>
       </div>
 
       <div class="nav-right">
-        <button class="btn-friends" @click="toggleFriends">
-          <i class="fas fa-users"></i>
+        <button class="btn-hud alliance-btn" @click="showFriends = !showFriends">
+          <i class="fas fa-shield-alt"></i>
           <span class="online-indicator">3</span>
-          <span>ALIANZAS</span>
+          <span class="btn-label">ALIANZAS</span>
         </button>
       </div>
     </nav>
 
     <div class="main-layout">
       <aside class="party-sidebar">
+        <div class="sidebar-header">COMPAÑEROS</div>
         <div v-for="hero in party" :key="hero.id" class="hero-card" :class="{ 'hero-dead': hero.hp <= 0 }">
-          <div class="hero-avatar">
-            <span class="icon">{{ hero.icon }}</span>
-            <div class="hp-bar">
-              <div class="hp-fill" :style="{ width: (hero.hp / hero.maxHp) * 100 + '%' }"></div>
+          <div class="hero-avatar-wrapper">
+            <div class="hero-icon">{{ hero.icon }}</div>
+            <div class="hp-container">
+              <div class="hp-bar-bg">
+                <div class="hp-fill" :style="{ width: (hero.hp / hero.maxHp) * 100 + '%' }"></div>
+              </div>
             </div>
           </div>
-          <div class="hero-info">
-            <span class="hero-name">{{ hero.name }}</span>
-            <span class="hero-role">{{ hero.role }}</span>
-            <div class="hero-stats-mini">
-              <span>HP {{ hero.hp }}/{{ hero.maxHp }}</span>
-            </div>
+          <div class="hero-details">
+            <div class="hero-name">{{ hero.name }}</div>
+            <div class="hero-role">{{ hero.role }}</div>
+            <div class="hero-hp-text">HP {{ hero.hp }} / {{ hero.maxHp }}</div>
           </div>
         </div>
       </aside>
 
       <main class="game-stage">
         <div class="log-container" ref="logContainer">
-          <div v-for="(entry, index) in history" :key="index" class="log-entry" :class="entry.type">
-            <p v-if="entry.type === 'narrative'" class="text-narrative">{{ entry.content }}</p>
-            <div v-if="entry.type === 'combat'" class="text-combat">
-              <i class="fas fa-skull"></i> {{ entry.content }}
+          <div v-for="(entry, index) in history" :key="index" class="log-entry-wrapper">
+            <div :class="['log-entry', entry.type]">
+              <div v-if="entry.type === 'narrative'" class="text-narrative">
+                {{ entry.content }}
+              </div>
+              <div v-else-if="entry.type === 'combat'" class="text-combat">
+                <div class="combat-icon"><i class="fas fa-skull-crossbones"></i></div>
+                <div class="combat-text">{{ entry.content }}</div>
+              </div>
+              <div v-else-if="entry.type === 'action'" class="text-action">
+                > {{ entry.content }}
+              </div>
             </div>
+          </div>
+
+          <div v-if="isTyping" class="ai-typing">
+            <div class="typing-loader">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="typing-text">EL NARRADOR ESTÁ FORJANDO LA HISTORIA...</span>
           </div>
         </div>
 
-        <footer class="action-bar">
+        <footer class="action-bar" :class="{ 'bar-disabled': isTyping }">
           <div class="action-grid">
-            <button @click="handleAction('explorar')" class="btn-action">EXPLORAR</button>
-            <button @click="handleAction('descansar')" class="btn-action">DESCANSAR</button>
-            <button @click="handleAction('atacar')" class="btn-action danger">ATACAR</button>
+            <button 
+              v-for="option in currentOptions" 
+              :key="option.id" 
+              @click="handleAction(option)" 
+              class="btn-action-fantasy"
+              :class="{ 'btn-danger': option.type === 'combat' }"
+              :disabled="isTyping"
+            >
+              <span class="btn-inner">{{ option.label }}</span>
+            </button>
           </div>
         </footer>
       </main>
     </div>
 
-    <transition name="slide-right">
-      <div v-if="showFriends" class="friends-overlay">
-        <header>
+    <transition name="panel-slide">
+      <div v-if="showFriends" class="friends-panel">
+        <div class="panel-header">
           <h3>ALIANZAS ACTIVAS</h3>
-          <button @click="showFriends = false">✕</button>
-        </header>
+          <button class="close-btn" @click="showFriends = false">✕</button>
+        </div>
         <div class="friends-list">
-          <div class="friend-item online">
-            <div class="f-avatar">MA</div>
+          <div class="friend-card online">
+            <div class="status-dot"></div>
             <div class="f-info"><strong>Marco_Dam</strong> <small>En Bastión Real</small></div>
           </div>
-          <div class="friend-item online">
-            <div class="f-avatar">EL</div>
-            <div class="f-info"><strong>Elena_Valk</strong> <small>En las Minas</small></div>
-          </div>
-          <div class="friend-item offline">
-            <div class="f-avatar">JO</div>
+          <div class="friend-card offline">
+            <div class="status-dot"></div>
             <div class="f-info"><strong>Jordi_66</strong> <small>Desconectado</small></div>
           </div>
         </div>
@@ -92,243 +116,254 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 
-const route = useRoute();
+
 const router = useRouter();
-
-
+const logContainer = ref(null);
+const isTyping = ref(false);
 const showFriends = ref(false);
-const showMenu = ref(false);
+
+const userId = ref(null);
+const campaignTitle = ref("LA SOMBRA DE PIEDRAPROFUNDA");
+const locationName = ref("Cargando...");
+const currentBackground = ref("");
+const party = ref([]);
+const history = ref([]);
+const currentOptions = ref([]);
 
 
-const campaignTitle = ref("La Sombra de Piedraprofunda");
-const locationName = ref("Taberna El Perro Ciego");
-const currentBackground = ref("https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=1200");
+const fetchGameState = async () => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) return router.push('/login');
+  userId.value = user.id || user._id;
 
-const party = ref([
-  { id: 1, name: 'Kaelen', role: 'Guerrero', hp: 45, maxHp: 50, icon: '⚔️' },
-  { id: 2, name: 'Vax', role: 'Pícaro', hp: 22, maxHp: 30, icon: '🗡️' },
-  { id: 3, name: 'Elara', role: 'Maga', hp: 18, maxHp: 25, icon: '🩸' },
-  { id: 4, name: 'Sorin', role: 'Clérigo', hp: 28, maxHp: 35, icon: '⚖️' }
-]);
-
-const history = ref([
-  { type: 'narrative', content: 'La lluvia golpea el tejado de la taberna. El Rey Alaric busca algo... y vuestras almas están marcadas.' },
-  { type: 'combat', content: '¡Un asesino de la Guardia de Hierro emerge de las sombras!' }
-]);
-
-const toggleFriends = () => showFriends.value = !showFriends.value;
-const toggleMenu = () => alert("Menú: Guardar / Ajustes / Salir");
-
-const handleAction = (type) => {
-  history.value.push({ type: 'narrative', content: `Decides ${type} la zona con cautela...` });
+  try {
+    const response = await fetch(`/api/game/load/${userId.value}`);
+    const data = await response.json();
+    if (response.ok) {
+      locationName.value = data.locationName || "Desconocido";
+      currentBackground.value = data.currentBackground;
+      party.value = data.party || [];
+      history.value = data.history || [];
+      currentOptions.value = data.currentOptions || [];
+      await scrollToBottom();
+    }
+  } catch (err) {
+    console.error("Error crítico de carga:", err);
+  }
 };
 
-onMounted(() => {
 
-  const savedSession = JSON.parse(localStorage.getItem('valkrypt_current_game'));
-  if (savedSession) {
-    campaignTitle.value = savedSession.campaignTitle;
-    party.value = savedSession.party.map(p => ({ ...p, hp: 30, maxHp: 30 })); 
+const handleAction = async (option) => {
+  if (isTyping.value) return;
+  
+  try {
+
+    const res = await fetch('/api/game/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: userId.value, action: option })
+    });
+    
+    const newState = await res.json();
+    if (res.ok) {
+      history.value = newState.history;
+      currentOptions.value = [];
+      await callNarrator(option.label);
+    }
+  } catch (err) {
+    console.error("Error en acción:", err);
   }
-});
+};
+
+const callNarrator = async (playerAction) => {
+  isTyping.value = true;
+  try {
+    const response = await fetch('/api/game/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerAction,
+        storyHistory: history.value.map(h => ({ 
+          role: h.type === 'narrative' ? 'model' : 'user', 
+          text: h.content 
+        })),
+        worldSeed: `Contexto: ${locationName.value}`
+      })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    let aiEntry = { type: 'narrative', content: '' };
+    history.value.push(aiEntry);
+
+    let fullOutput = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      fullOutput += chunk;
+
+
+      aiEntry.content = fullOutput
+        .split('<DECISIONES>')[0]
+        .replace(/<NARRATIVA>|<\/NARRATIVA>/g, '')
+        .trim();
+
+      await scrollToBottom();
+    }
+
+   
+    processFinalTags(fullOutput);
+  } catch (err) {
+    console.error("Error en stream:", err);
+  } finally {
+    isTyping.value = false;
+  }
+};
+
+const processFinalTags = (text) => {
+  const decisions = text.match(/<DECISIONES>([\s\S]*?)<\/DECISIONES>/);
+  if (decisions) {
+    const lines = decisions[1].trim().split('\n');
+    currentOptions.value = lines.map(line => {
+      const m = line.match(/\[id:(.*?)\]\s*(.*)/);
+      return m ? { id: m[1], label: m[2], type: 'narrative' } : null;
+    }).filter(o => o);
+  }
+};
+
+const scrollToBottom = async () => {
+  await nextTick();
+  if (logContainer.value) {
+    logContainer.value.scrollTo({
+      top: logContainer.value.scrollHeight,
+      behavior: 'smooth'
+    });
+  }
+};
+
+const toggleMenu = () => router.push('/UserPage');
+
+onMounted(fetchGameState);
 </script>
 
 <style scoped lang="scss">
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,700;1,400&display=swap');
+
 $gold: #c5a059;
-$dark-card: rgba(15, 15, 15, 0.9);
+$gold-bright: #f0d7a3;
 $crimson: #8a1c1c;
+$bg-dark: #050505;
+$border-alpha: rgba(197, 160, 89, 0.2);
 
 .game-viewport {
-  width: 100vw;
-  height: 100vh;
-  background: #000;
-  color: #eee;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  width: 100vw; height: 100vh; background: $bg-dark;
+  color: #eee; overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
 }
 
 
 .fx-layer {
-  position: absolute;
-  inset: 0;
-  &.bg-image { background-size: cover; background-position: center; opacity: 0.4; }
-  &.vignette { background: radial-gradient(circle, transparent 30%, #000 100%); }
-  &.grain { background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.05; }
+  position: absolute; inset: 0; pointer-events: none;
+  &.bg-image { background-size: cover; background-position: center; opacity: 0.3; transition: 2s; z-index: 1; }
+  &.vignette { background: radial-gradient(circle, transparent 20%, #000 100%); z-index: 2; }
+  &.grain { background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.05; z-index: 3; }
+  &.scanlines { background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 4; }
 }
 
 .hud-top {
-  height: 60px;
-  background: linear-gradient(to bottom, rgba(0,0,0,1), transparent);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 2rem;
-  z-index: 10;
-  border-bottom: 1px solid rgba($gold, 0.2);
+  height: 70px; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 30px; border-bottom: 1px solid $border-alpha; z-index: 10;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
 
-  .nav-center .location-tag {
-    font-family: 'Cinzel', serif;
-    color: $gold;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    letter-spacing: 1px;
+  .location-display {
+    text-align: center;
+    .campaign-name { font-size: 0.7rem; color: #777; letter-spacing: 3px; font-family: 'Cinzel'; }
+    .location-tag { color: $gold; font-family: 'Cinzel'; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px rgba($gold, 0.5); }
   }
 }
 
-.btn-icon-menu, .btn-friends {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba($gold, 0.3);
-  color: #fff;
-  padding: 8px 15px;
-  cursor: pointer;
-  font-family: 'Cinzel', serif;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  &:hover { background: rgba($gold, 0.2); }
-}
-
-.online-indicator {
-  background: #2ecc71;
-  color: black;
-  font-size: 0.6rem;
-  padding: 1px 5px;
-  border-radius: 10px;
-  font-weight: bold;
+.btn-hud {
+  background: rgba(20,20,20,0.6); border: 1px solid $border-alpha; color: $gold;
+  padding: 10px 20px; font-family: 'Cinzel'; cursor: pointer; transition: 0.3s;
+  display: flex; align-items: center; gap: 10px;
+  &:hover { background: $gold; color: #000; border-color: $gold; }
 }
 
 
-.main-layout {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  position: relative;
-  z-index: 5;
-  height: calc(100vh - 60px);
-}
-
+.main-layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 70px); position: relative; z-index: 5; }
 
 .party-sidebar {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
-  border-right: 1px solid rgba($gold, 0.1);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-right: 1px solid $border-alpha;
+  padding: 30px 20px; display: flex; flex-direction: column; gap: 20px;
+  .sidebar-header { font-family: 'Cinzel'; color: #555; font-size: 0.8rem; letter-spacing: 2px; text-align: center; }
 }
 
 .hero-card {
-  background: $dark-card;
-  border: 1px solid #333;
-  padding: 12px;
-  display: flex;
-  gap: 12px;
-  border-radius: 4px;
-  transition: 0.3s;
-  
-  &:hover { border-color: $gold; transform: translateX(5px); }
+  background: rgba(15,15,15,0.8); border: 1px solid #222; padding: 15px; display: flex; gap: 15px;
+  transition: 0.4s; position: relative;
+  &:hover { border-color: $gold; transform: translateX(5px); background: rgba($gold, 0.05); }
+  &.hero-dead { filter: grayscale(1); opacity: 0.4; }
 
-  .hero-avatar {
-    width: 50px;
-    .icon { font-size: 2rem; display: block; text-align: center; }
-  }
-
-  .hp-bar {
-    width: 100%;
-    height: 4px;
-    background: #222;
-    margin-top: 8px;
-    .hp-fill { height: 100%; background: $crimson; transition: 0.5s; }
-  }
-
-  .hero-name { font-family: 'Cinzel', serif; display: block; color: $gold; font-size: 0.9rem; }
-  .hero-role { font-size: 0.7rem; color: #888; text-transform: uppercase; }
-  .hero-stats-mini { font-size: 0.7rem; margin-top: 5px; color: #bbb; }
+  .hero-icon { font-size: 2rem; }
+  .hp-bar-bg { width: 100%; height: 4px; background: #000; margin-top: 8px; border: 1px solid #333; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg, $crimson, #ff4d4d); transition: 1s ease-out; }
+  .hero-name { font-family: 'Cinzel'; color: $gold; font-size: 1rem; }
+  .hero-role { font-size: 0.7rem; color: #666; text-transform: uppercase; }
+  .hero-hp-text { font-size: 0.7rem; color: #999; margin-top: 5px; }
 }
 
 
-.game-stage {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-}
+.game-stage { display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; width: 100%; }
 
 .log-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  background: rgba(0,0,0,0.3);
+  flex: 1; overflow-y: auto; padding: 50px 20px; display: flex; flex-direction: column; gap: 30px;
   mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 
-  .text-narrative { font-size: 1.1rem; line-height: 1.6; color: #ccc; }
-  .text-combat { color: #ff6b6b; font-weight: bold; padding: 10px; background: rgba(138, 28, 28, 0.1); border-left: 3px solid $crimson; }
+  .text-narrative { font-family: 'Crimson Text', serif; font-size: 1.3rem; line-height: 1.8; color: #ccc; animation: fadeIn 1.5s ease; }
+  .text-combat { background: rgba($crimson, 0.1); border-left: 3px solid $crimson; padding: 20px; color: #ff6b6b; font-family: 'Cinzel'; }
+  .text-action { font-family: 'Cinzel'; color: $gold; opacity: 0.7; font-size: 0.9rem; }
 }
 
+.ai-typing {
+  display: flex; align-items: center; gap: 15px; color: $gold; font-family: 'Cinzel'; font-size: 0.8rem;
+  .typing-loader { display: flex; gap: 5px; span { width: 4px; height: 4px; background: $gold; border-radius: 50%; animation: bounce 1.4s infinite; } }
+}
 
 .action-bar {
-  height: 120px;
-  padding: 20px;
-  .action-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    max-width: 800px;
-    margin: 0 auto;
-  }
+  padding: 40px 0; border-top: 1px solid rgba($gold, 0.1);
+  &.bar-disabled { opacity: 0.5; pointer-events: none; }
+  .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
 }
 
-.btn-action {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid #444;
-  color: #fff;
-  padding: 15px;
-  font-family: 'Cinzel', serif;
-  cursor: pointer;
-  transition: 0.3s;
-  &:hover { background: $gold; color: #000; border-color: $gold; }
-  &.danger:hover { background: $crimson; color: #fff; border-color: $crimson; }
+.btn-action-fantasy {
+  background: rgba(10,10,10,0.8); border: 1px solid #333; color: #aaa;
+  padding: 18px; cursor: pointer; font-family: 'Cinzel'; transition: 0.4s;
+  position: relative; overflow: hidden;
+  &:hover { border-color: $gold; color: $gold; background: rgba($gold, 0.05); }
+  &.btn-danger:hover { border-color: $crimson; color: #ff4d4d; background: rgba($crimson, 0.05); }
 }
 
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
-.friends-overlay {
-  position: absolute;
-  right: 0; top: 60px; bottom: 0;
-  width: 300px;
-  background: #0a0a0a;
-  border-left: 1px solid $gold;
-  z-index: 100;
-  padding: 20px;
-
-  header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 20px;
-    h3 { font-family: 'Cinzel', serif; color: $gold; font-size: 0.9rem; }
-    button { background: none; border: none; color: #fff; cursor: pointer; }
-  }
+.friends-panel {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 350px;
+  background: rgba(5,5,5,0.98); border-left: 1px solid $gold; z-index: 100; padding: 40px;
+  .panel-header { display: flex; justify-content: space-between; color: $gold; font-family: 'Cinzel'; margin-bottom: 30px; }
+  .friend-card { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; opacity: 0.6; &.online { opacity: 1; } }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
+  .online .status-dot { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+  .close-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem; }
 }
 
-.friend-item {
-  display: flex; gap: 10px; margin-bottom: 15px; align-items: center;
-  opacity: 0.6;
-  &.online { opacity: 1; .f-avatar { border-color: #2ecc71; } }
-  .f-avatar { width: 35px; height: 35px; background: #222; border: 1px solid #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
-  .f-info { strong { display: block; font-size: 0.85rem; } small { color: $gold; font-size: 0.7rem; } }
-}
-
-.slide-right-enter-active, .slide-right-leave-active { transition: transform 0.3s ease; }
-.slide-right-enter-from, .slide-right-leave-to { transform: translateX(100%); }
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-thumb { background: #333; }
+.panel-slide-enter-active, .panel-slide-leave-active { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.panel-slide-enter-from, .panel-slide-leave-to { transform: translateX(100%); }
 </style>

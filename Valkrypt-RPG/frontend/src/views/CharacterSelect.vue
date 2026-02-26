@@ -103,20 +103,47 @@ const toggleChar = (char) => {
   }
 };
 
-const start = () => {
+const start = async () => {
+  const userStore = JSON.parse(localStorage.getItem('user'));
+  const userId = userStore?.id || userStore?._id;
+
+  if (!userId) {
+    alert("Sesión no encontrada. Por favor, inicia sesión de nuevo.");
+    return;
+  }
+
   const sessionData = {
+    userId: userId,
     campaignId: campaignId.value,
     campaignTitle: campaignData.value.title,
     location: campaignData.value.location,
     party: party.value,
-    turn: 1,
-    timestamp: new Date().toISOString()
+    turn: 1
   };
-  
 
-  localStorage.setItem('valkrypt_current_game', JSON.stringify(sessionData));
+  try {
+    const response = await fetch('/api/game/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: userId,
+        action: { 
+          type: 'init', 
+          label: 'Inicio de Aventura', 
+          data: sessionData 
+        }
+      })
+    });
 
-  router.push('/game');
+    if (response.ok) {
+      localStorage.setItem('valkrypt_current_game', JSON.stringify(sessionData));
+      router.push('/game');
+    } else {
+      console.error("Error al guardar partida inicial");
+    }
+  } catch (err) {
+    console.error("Fallo de red al conectar con el servidor:", err);
+  }
 };
 </script>
 
@@ -132,6 +159,7 @@ $dark-card: rgba(10, 10, 10, 0.9);
   padding: 40px;
   min-height: 100vh;
   position: relative;
+  overflow-x: hidden;
 }
 
 .ambient-fx {
@@ -159,6 +187,8 @@ $dark-card: rgba(10, 10, 10, 0.9);
   margin-bottom: 40px;
   border-bottom: 1px solid rgba($gold, 0.2);
   padding-bottom: 20px;
+  position: relative;
+  z-index: 10;
 }
 
 .btn-back {
@@ -167,6 +197,7 @@ $dark-card: rgba(10, 10, 10, 0.9);
   color: #666;
   font-family: 'Cinzel', serif;
   cursor: pointer;
+  transition: 0.3s;
   &:hover { color: $gold; }
 }
 
@@ -179,7 +210,9 @@ $dark-card: rgba(10, 10, 10, 0.9);
 .step-title {
   text-align: center;
   margin-bottom: 40px;
-  h1 { font-family: 'Cinzel', serif; color: $gold; letter-spacing: 2px; }
+  position: relative;
+  z-index: 10;
+  h1 { font-family: 'Cinzel', serif; color: $gold; letter-spacing: 2px; margin-bottom: 10px; }
   p { color: #888; font-style: italic; }
 }
 
@@ -189,6 +222,8 @@ $dark-card: rgba(10, 10, 10, 0.9);
   gap: 30px;
   max-width: 1100px;
   margin: 0 auto;
+  position: relative;
+  z-index: 10;
 }
 
 .char-card {
@@ -202,6 +237,8 @@ $dark-card: rgba(10, 10, 10, 0.9);
   transition: 0.3s;
   border-radius: 4px;
 
+  &:hover { border-color: rgba($gold, 0.5); transform: translateX(5px); }
+
   &.is-selected {
     border-color: $gold;
     background: rgba($gold, 0.1);
@@ -211,11 +248,19 @@ $dark-card: rgba(10, 10, 10, 0.9);
   .char-avatar-box {
     font-size: 2rem;
     margin-right: 20px;
+    background: rgba(255,255,255,0.05);
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
   }
 
   .info {
     .char-name { font-family: 'Cinzel', serif; font-size: 1.2rem; color: #fff; display: block; }
-    .char-role { color: $gold; font-size: 0.8rem; text-transform: uppercase; }
+    .char-role { color: $gold; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .char-weapon { color: #555; font-size: 0.75rem; margin-top: 2px; }
   }
 
   .select-indicator {
@@ -224,6 +269,7 @@ $dark-card: rgba(10, 10, 10, 0.9);
     height: 12px;
     border: 1px solid #444;
     border-radius: 50%;
+    transition: 0.3s;
   }
 }
 
@@ -234,7 +280,8 @@ $dark-card: rgba(10, 10, 10, 0.9);
   text-align: center;
   border-radius: 4px;
   height: fit-content;
-  h3 { font-family: 'Cinzel', serif; color: $gold; margin-bottom: 20px; font-size: 0.9rem; }
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  h3 { font-family: 'Cinzel', serif; color: $gold; margin-bottom: 20px; font-size: 0.9rem; letter-spacing: 1px; }
 }
 
 .party-slots {
@@ -250,9 +297,12 @@ $dark-card: rgba(10, 10, 10, 0.9);
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
-    &.filled { border: 1px solid $gold; color: $gold; }
+    transition: 0.3s;
+    &.filled { border: 1px solid $gold; color: $gold; background: rgba($gold, 0.05); }
   }
 } 
+
+.party-info { color: #666; font-size: 0.8rem; margin-bottom: 20px; }
 
 .btn-start-adventure {
   width: 100%;
@@ -263,8 +313,11 @@ $dark-card: rgba(10, 10, 10, 0.9);
   font-family: 'Cinzel', serif;
   font-weight: bold;
   cursor: pointer;
+  transition: 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   &:disabled { background: #222; color: #444; cursor: not-allowed; }
-  &:hover:not(:disabled) { background: lighten($gold, 15%); }
+  &:hover:not(:disabled) { background: lighten($gold, 15%); box-shadow: 0 0 15px rgba($gold, 0.4); }
 }
 
 .fade-in { animation: fadeIn 0.4s ease-out forwards; }

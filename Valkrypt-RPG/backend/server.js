@@ -7,20 +7,25 @@ const NarrativeController = require('./controllers/NarrativeController');
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// --- RUTAS DE VALKRYPT ---
 app.post('/api/auth/register', AuthController.register);
 app.post('/api/auth/verify', AuthController.verify);
 app.post('/api/auth/login', AuthController.login);
 app.post('/api/auth/logout', AuthController.logout);
-app.post('/api/narrative/stream', NarrativeController.stream);
+
+app.get('/api/game/load/:userId', NarrativeController.loadProgress);
+app.post('/api/game/action', NarrativeController.processAction);
+app.post('/api/game/stream', NarrativeController.stream);
+
 app.get('/', (req, res) => res.send('⚔️ Valkrypt API v1.0 - Atlas Connected'));
+
 const PORT = process.env.PORT || 3000;
+
 connectDB().then(() => {
     app.listen(PORT, () => console.log(`⚔️ Servidor Valkrypt en puerto ${PORT}`));
 }).catch(err => {
-    console.error("No se pudo iniciar el servidor debido a la DB", err);
+    console.error(err);
+    process.exit(1);
 });
