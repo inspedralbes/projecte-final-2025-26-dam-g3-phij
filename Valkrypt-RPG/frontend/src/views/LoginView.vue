@@ -3,12 +3,12 @@
     <div class="auth-box">
       <h1>ENTRAR</h1>
       <form @submit.prevent="handleLogin">
-        <input v-model="username" type="text" placeholder="NOMBRE DE USUARIO" required />
-        <input v-model="password" type="password" placeholder="CONTRASEÑA" required />
+        <input v-model="username" type="text" required />
+        <input v-model="password" type="password" required />
         <button type="submit" class="btn-auth">DESPERTAR</button>
       </form>
       <p class="switch-auth">
-        ¿Eres nuevo? <router-link to="/register">Crea tu alma aquí</router-link>
+        ¿ERES NUEVO? <router-link to="/register">CREA TU ALMA AQUÍ</router-link>
       </p>
     </div>
   </div>
@@ -24,7 +24,7 @@ const router = useRouter();
 
 const handleLogin = async () => {
   try {
-    const response = await fetch('/api/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -33,17 +33,21 @@ const handleLogin = async () => {
       })
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      router.push('/UserPage'); 
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        router.push('/UserPage');
+      } else {
+        alert(data.error || "Credenciales incorrectas");
+      }
     } else {
-      alert(data.error || "Credenciales incorrectas");
+      alert("Error de configuración: El servidor no responde en formato JSON. Revisa el Proxy.");
     }
   } catch (err) {
-    console.error("Error de conexión:", err);
+    console.error(err);
     alert("No se pudo conectar con el servidor de Valkrypt");
   }
 };
@@ -75,6 +79,7 @@ input {
   border: 1px solid #333;
   color: white;
   outline: none;
+  box-sizing: border-box;
 }
 input:focus { border-color: #d4af37; }
 .btn-auth {
@@ -85,8 +90,9 @@ input:focus { border-color: #d4af37; }
   border: 1px solid #d4af37;
   cursor: pointer;
   font-weight: bold;
+  letter-spacing: 2px;
 }
 .btn-auth:hover { background: #b30e0e; }
-.switch-auth { margin-top: 20px; font-size: 0.8rem; color: #888; }
+.switch-auth { margin-top: 20px; font-size: 0.8rem; color: #888; text-transform: uppercase; }
 .switch-auth a { color: #d4af37; text-decoration: none; }
 </style>

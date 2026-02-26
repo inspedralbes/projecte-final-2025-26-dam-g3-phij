@@ -13,20 +13,16 @@
         </div>
 
         <div class="nav-center">
-          <router-link to="/friends" class="nav-link">
-            <i class="fas fa-users"></i> ALIANZAS
-          </router-link>
-          <router-link to="/codice" class="nav-link">
-            <i class="fas fa-book-dead"></i> CÓDICE
-          </router-link>
+          <router-link to="/friends" class="nav-link">ALIANZAS</router-link>
+          <router-link to="/codice" class="nav-link">CÓDICE</router-link>
         </div>
 
         <div class="nav-right">
           <router-link to="/profile" class="profile-pill">
             <div class="avatar">{{ userInitial }}</div>
-            <span class="p-label">PERFIL</span>
+            <span class="p-label">{{ usernameLabel }}</span>
           </router-link>
-          <button @click="handleLogout" class="btn-exit" title="Cerrar Sesión">
+          <button @click="handleLogout" class="btn-exit">
             <i class="fas fa-power-off"></i>
           </button>
         </div>
@@ -35,7 +31,7 @@
 
     <main class="dashboard">
       <header class="page-head">
-        <p class="kicker">Crónicas del Reino</p>
+        <p class="kicker">CRÓNICAS DEL REINO</p>
         <h1>MIS AVENTURAS</h1>
       </header>
 
@@ -54,9 +50,9 @@
           </div>
           <div class="card-body">
             <h3>{{ save.title }}</h3>
-            <p class="last-event">"{{ save.lastEvent }}"</p>
+            <p class="last-event">{{ save.lastEvent }}</p>
             <div class="card-meta">
-              <span><i class="far fa-clock"></i> {{ save.date }}</span>
+              <span>{{ save.date }}</span>
               <button class="btn-play" @click="resumeGame(save.id)">CONTINUAR</button>
             </div>
           </div>
@@ -72,23 +68,13 @@
             </header>
             
             <div class="campaign-options">
-              <div 
-                v-for="camp in availableCampaigns" 
-                :key="camp.id" 
-                class="camp-option-card"
-              >
+              <div v-for="camp in availableCampaigns" :key="camp.id" class="camp-option-card">
                 <div class="camp-image" :style="{ backgroundImage: `url(${camp.img})` }"></div>
                 <div class="camp-info">
                   <h3>{{ camp.title }}</h3>
                   <p>{{ camp.desc }}</p>
-                  
                   <div class="camp-actions">
-                    <button class="btn-camp-new" @click="startNewGame(camp.id)">
-                      <i class="fas fa-plus"></i> EMPEZAR
-                    </button>
-                    <button class="btn-camp-continue" @click="resumeGame(camp.id)">
-                      <i class="fas fa-play"></i> CONTINUAR
-                    </button>
+                    <button class="btn-camp-new" @click="startNewGame(camp.id)">EMPEZAR</button>
                   </div>
                 </div>
               </div>
@@ -106,16 +92,16 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const userInitial = ref('?');
+const usernameLabel = ref('PERFIL');
 const isSelectingCampaign = ref(false);
 
-// Partidas guardadas - Simulacion aun no esta conectado a la base de datos de mongo atlas
 const savedGames = ref([
   {
     id: 'piedraprofunda',
-    title: "La Sombra de Piedraprofunda",
-    location: "El Perro Ciego",
-    lastEvent: "Kaelen y Vax discuten el plan bajo la lluvia de ceniza.",
-    date: "Hace 2 horas",
+    title: "LA SOMBRA DE PIEDRAPROFUNDA",
+    location: "EL PERRO CIEGO",
+    lastEvent: "Borin y Vax discuten el plan bajo la lluvia de ceniza.",
+    date: "HACE 2 HORAS",
     img: "https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=500"
   }
 ]);
@@ -123,13 +109,13 @@ const savedGames = ref([
 const availableCampaigns = [
   {
     id: 'piedraprofunda',
-    title: 'La Sombra de Piedraprofunda',
+    title: 'LA SOMBRA DE PIEDRAPROFUNDA',
     desc: 'El Rey Alaric ha despertado un poder antiguo en las profundidades de Bastión Real.',
     img: 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=600'
   },
   {
     id: 'minas',
-    title: 'Las Minas del Norte',
+    title: 'LAS MINAS DEL NORTE',
     desc: 'El invierno eterno oculta secretos que nunca debieron ser desenterrados.',
     img: 'https://images.unsplash.com/photo-1505118380757-91f5f5832de0?q=80&w=600'
   }
@@ -137,8 +123,11 @@ const availableCampaigns = [
 
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem('user'));
-  if (user?.username) {
+  if (user && user.username) {
     userInitial.value = user.username.charAt(0).toUpperCase();
+    usernameLabel.value = user.username.toUpperCase();
+  } else {
+    router.push('/login');
   }
 });
 
@@ -148,12 +137,8 @@ const handleLogout = () => {
   router.push('/login');
 };
 
-
 const startNewGame = (campId) => {
-  router.push({ 
-    path: '/select', 
-    query: { campaign: campId } 
-  });
+  router.push({ path: '/select', query: { campaign: campId } });
 };
 
 const resumeGame = (id) => {
@@ -174,9 +159,8 @@ $card-bg: rgba(20, 20, 20, 0.9);
   color: #eee;
   position: relative;
   overflow-x: hidden;
-  font-family: 'Lato', sans-serif;
+  font-family: 'Cinzel', serif;
 }
-
 
 .ambient-overlay {
   position: absolute;
@@ -218,10 +202,7 @@ $card-bg: rgba(20, 20, 20, 0.9);
   align-items: center;
   gap: 12px;
   color: $gold;
-  font-family: 'Cinzel', serif;
-  font-weight: bold;
   letter-spacing: 3px;
-  i { font-size: 1.2rem; }
 }
 
 .nav-link {
@@ -229,7 +210,6 @@ $card-bg: rgba(20, 20, 20, 0.9);
   text-decoration: none;
   margin: 0 1.5rem;
   font-size: 0.85rem;
-  font-family: 'Cinzel', serif;
   transition: 0.3s;
   &:hover { color: $gold; text-shadow: 0 0 8px rgba($gold, 0.4); }
 }
@@ -270,7 +250,6 @@ $card-bg: rgba(20, 20, 20, 0.9);
   &:hover { color: #ff4444; transform: scale(1.1); }
 }
 
-
 .dashboard {
   position: relative;
   z-index: 5;
@@ -281,8 +260,8 @@ $card-bg: rgba(20, 20, 20, 0.9);
 
 .page-head {
   margin-bottom: 3.5rem;
-  .kicker { color: $gold; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 4px; margin-bottom: 0.5rem; }
-  h1 { font-family: 'Cinzel', serif; font-size: 2.8rem; color: #fff; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
+  .kicker { color: $gold; letter-spacing: 4px; margin-bottom: 0.5rem; }
+  h1 { font-size: 2.8rem; color: #fff; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
 }
 
 .adventures-grid {
@@ -295,33 +274,15 @@ $card-bg: rgba(20, 20, 20, 0.9);
   background: $card-bg;
   border: 1px solid #222;
   border-radius: 4px;
-  transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  transition: 0.4s;
   overflow: hidden;
-  
-  &:hover {
-    border-color: $gold;
-    transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
-  }
-
+  &:hover { border-color: $gold; transform: translateY(-8px); }
   &.create {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    border: 2px dashed #2a2a2a;
     padding: 4rem 2rem;
     cursor: pointer;
-    .icon { font-size: 3.5rem; color: #333; display: block; margin-bottom: 1.5rem; transition: 0.3s; }
-    h3 { font-family: 'Cinzel', serif; color: #666; transition: 0.3s; }
-    p { color: #444; font-size: 0.9rem; transition: 0.3s; }
-    
-    &:hover {
-      border-color: $gold;
-      background: rgba($gold, 0.02);
-      .icon, h3 { color: $gold; }
-      p { color: #888; }
-    }
+    border: 2px dashed #2a2a2a;
+    .icon { font-size: 3.5rem; color: #333; display: block; margin-bottom: 1.5rem; }
+    &:hover { border-color: $gold; .icon, h3 { color: $gold; } }
   }
 }
 
@@ -332,164 +293,59 @@ $card-bg: rgba(20, 20, 20, 0.9);
   position: relative;
   .status-tag {
     position: absolute;
-    bottom: 0; left: 0;
-    background: rgba(0,0,0,0.85);
-    color: $gold;
-    padding: 6px 15px;
-    font-size: 0.7rem;
-    font-family: 'Cinzel', serif;
-    letter-spacing: 1px;
-    border-top-right-radius: 4px;
+    bottom: 0; background: rgba(0,0,0,0.85);
+    color: $gold; padding: 6px 15px; font-size: 0.7rem;
   }
 }
 
 .card-body {
   padding: 1.8rem;
-  h3 { font-family: 'Cinzel', serif; color: $gold; margin-bottom: 12px; font-size: 1.2rem; }
-  .last-event { font-size: 0.85rem; color: #999; font-style: italic; min-height: 45px; line-height: 1.5; }
+  h3 { color: $gold; margin-bottom: 12px; font-size: 1.2rem; }
+  .last-event { font-size: 0.85rem; color: #999; font-style: italic; min-height: 45px; }
 }
 
 .card-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.5rem;
+  display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;
   span { font-size: 0.75rem; color: #555; }
 }
 
 .btn-play {
-  background: $gold;
-  color: black;
-  border: none;
-  padding: 10px 22px;
-  font-family: 'Cinzel', serif;
-  font-weight: bold;
-  font-size: 0.8rem;
-  cursor: pointer;
-  border-radius: 2px;
-  transition: 0.3s;
-  &:hover { background: #d4b47a; transform: translateY(-2px); }
+  background: $gold; color: black; border: none; padding: 10px 22px;
+  font-weight: bold; cursor: pointer; transition: 0.3s;
+  &:hover { background: #d4b47a; }
 }
 
 .campaign-selector-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.96);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 25px;
-  backdrop-filter: blur(8px);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 100;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px);
 }
 
 .selector-content {
-  width: 100%;
-  max-width: 950px;
-  background: #0a0a0a;
-  border: 1px solid rgba($gold, 0.4);
-  padding: 45px;
-  border-radius: 4px;
-  position: relative;
-  box-shadow: 0 0 50px rgba(0,0,0,1);
+  width: 90%; max-width: 950px; background: #0a0a0a; border: 1px solid $gold; padding: 45px;
 }
 
 .selector-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 35px;
-  border-bottom: 1px solid rgba($gold, 0.1);
-  padding-bottom: 20px;
-  h2 { font-family: 'Cinzel', serif; color: $gold; letter-spacing: 2px; }
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px;
+  h2 { color: $gold; }
 }
 
-.btn-close {
-  background: none; border: none; color: #444; font-size: 1.6rem; cursor: pointer;
-  transition: 0.3s;
-  &:hover { color: #fff; transform: rotate(90deg); }
-}
+.btn-close { background: none; border: none; color: #444; font-size: 1.6rem; cursor: pointer; }
 
-.campaign-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px;
-}
+.campaign-options { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
 
 .camp-option-card {
-  background: #111;
-  border: 1px solid #222;
-  border-radius: 4px;
-  overflow: hidden;
-  transition: 0.3s;
-  
-  .camp-image { 
-    height: 170px; 
-    background-size: cover; 
-    background-position: center; 
-    filter: grayscale(40%); 
-    transition: 0.5s; 
-  }
-  
-  &:hover {
-    border-color: rgba($gold, 0.5);
-    .camp-image { filter: grayscale(0%); }
-  }
-
-  .camp-info { 
-    padding: 22px; 
-    h3 { color: $gold; font-family: 'Cinzel', serif; margin-bottom: 12px; font-size: 1.1rem; }
-    p { font-size: 0.88rem; color: #888; margin-bottom: 25px; min-height: 48px; line-height: 1.4; }
-  }
-}
-
-.camp-actions {
-  display: flex;
-  gap: 12px;
-  
-  button {
-    flex: 1;
-    padding: 12px 5px;
-    font-family: 'Cinzel', serif;
-    font-weight: bold;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: 0.3s;
-    border-radius: 2px;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    i { font-size: 0.7rem; }
-  }
+  background: #111; border: 1px solid #222;
+  .camp-image { height: 170px; background-size: cover; }
+  .camp-info { padding: 22px; p { font-size: 0.88rem; color: #888; margin-bottom: 25px; } }
 }
 
 .btn-camp-new {
-  background: transparent;
-  border: 1px solid $gold;
-  color: $gold;
-  &:hover {
-    background: rgba($gold, 0.1);
-    box-shadow: inset 0 0 10px rgba($gold, 0.2);
-  }
+  width: 100%; background: transparent; border: 1px solid $gold; color: $gold;
+  padding: 12px; font-weight: bold; cursor: pointer;
+  &:hover { background: rgba($gold, 0.1); }
 }
 
-.btn-camp-continue {
-  background: $gold;
-  border: 1px solid $gold;
-  color: #000;
-  &:hover {
-    background: #d4b47a;
-    box-shadow: 0 0 15px rgba($gold, 0.3);
-  }
-}
-
-@keyframes fogMove {
-  from { background-position: 0 0; }
-  to { background-position: 1000px 0; }
-}
-
-.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+@keyframes fogMove { from { background-position: 0 0; } to { background-position: 1000px 0; } }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

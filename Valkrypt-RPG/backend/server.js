@@ -12,10 +12,10 @@ app.use(cors());
 app.use(express.json());
 
 // --- RUTAS DE VALKRYPT ---
-app.post('/api/register', AuthController.register);
-app.post('/api/verify', AuthController.verify);
-app.post('/api/login', AuthController.login);
-app.post('/api/logout', AuthController.logout);
+app.post('/api/auth/register', AuthController.register);
+app.post('/api/auth/verify', AuthController.verify);
+app.post('/api/auth/login', AuthController.login);
+app.post('/api/auth/logout', AuthController.logout);
 app.post('/api/narrative/stream', NarrativeController.stream);
 app.get('/', (req, res) => res.send('⚔️ Valkrypt API v1.0 - Atlas Connected'));
 const PORT = process.env.PORT || 3000;
