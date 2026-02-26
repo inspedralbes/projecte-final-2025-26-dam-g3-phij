@@ -15,6 +15,9 @@ app.post('/api/auth/verify', AuthController.verify);
 app.post('/api/auth/login', AuthController.login);
 app.post('/api/auth/logout', AuthController.logout);
 
+app.get('/api/game/campaigns', NarrativeController.getCampaigns);
+app.get('/api/game/campaigns/:campaignId', NarrativeController.getCampaignById);
+app.get('/api/game/saves/:userId', NarrativeController.listSaves);
 app.get('/api/game/load/:userId', NarrativeController.loadProgress);
 app.post('/api/game/action', NarrativeController.processAction);
 app.post('/api/game/stream', NarrativeController.stream);

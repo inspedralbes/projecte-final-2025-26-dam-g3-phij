@@ -247,7 +247,7 @@ const scrollToBottom = async () => {
   }
 };
 
-const toggleMenu = () => router.push('/UserPage');
+const toggleMenu = () => router.push('/userpage');
 
 onMounted(fetchGameState);
 </script>

@@ -44,6 +44,27 @@
           </div>
         </div>
 
+        <div v-if="savesLoading" class="adv-card saved-state">
+          <div class="card-body">
+            <h3>CARGANDO PARTIDAS</h3>
+            <p class="last-event">Leyendo tus crónicas desde la base de datos...</p>
+          </div>
+        </div>
+
+        <div v-else-if="savesError" class="adv-card saved-state error">
+          <div class="card-body">
+            <h3>NO SE PUDIERON CARGAR</h3>
+            <p class="last-event">{{ savesError }}</p>
+          </div>
+        </div>
+
+        <div v-else-if="savedGames.length === 0" class="adv-card saved-state">
+          <div class="card-body">
+            <h3>SIN PARTIDAS GUARDADAS</h3>
+            <p class="last-event">Empieza una nueva campaña para crear tu primera crónica.</p>
+          </div>
+        </div>
+
         <div v-for="save in savedGames" :key="save.id" class="adv-card saved">
           <div class="card-img" :style="{ backgroundImage: `url(${save.img})` }">
             <div class="status-tag">{{ save.location }}</div>
@@ -68,6 +89,9 @@
             </header>
             
             <div class="campaign-options">
+              <p v-if="campaignsLoading" class="campaign-state">Cargando campañas...</p>
+              <p v-else-if="campaignsError" class="campaign-state campaign-error">{{ campaignsError }}</p>
+              <p v-else-if="availableCampaigns.length === 0" class="campaign-state">No hay campañas disponibles.</p>
               <div v-for="camp in availableCampaigns" :key="camp.id" class="camp-option-card">
                 <div class="camp-image" :style="{ backgroundImage: `url(${camp.img})` }"></div>
                 <div class="camp-info">
@@ -94,38 +118,83 @@ const router = useRouter();
 const userInitial = ref('?');
 const usernameLabel = ref('PERFIL');
 const isSelectingCampaign = ref(false);
+const campaignsLoading = ref(false);
+const campaignsError = ref('');
+const savesLoading = ref(false);
+const savesError = ref('');
+const savedGames = ref([]);
+const SAVE_FALLBACK_IMG = 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=500';
 
-const savedGames = ref([
-  {
-    id: 'piedraprofunda',
-    title: "LA SOMBRA DE PIEDRAPROFUNDA",
-    location: "EL PERRO CIEGO",
-    lastEvent: "Borin y Vax discuten el plan bajo la lluvia de ceniza.",
-    date: "HACE 2 HORAS",
-    img: "https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=500"
+const availableCampaigns = ref([]);
+
+const loadCampaigns = async () => {
+  campaignsLoading.value = true;
+  campaignsError.value = '';
+  try {
+    const response = await fetch('/api/game/campaigns');
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}`);
+    }
+    const campaigns = await response.json();
+    availableCampaigns.value = Array.isArray(campaigns) ? campaigns : [];
+  } catch (err) {
+    console.error('No se pudo cargar el catálogo de campañas:', err);
+    campaignsError.value = 'No se pudieron cargar campañas desde la base de datos.';
+    availableCampaigns.value = [];
+  } finally {
+    campaignsLoading.value = false;
   }
-]);
+};
 
-const availableCampaigns = [
-  {
-    id: 'piedraprofunda',
-    title: 'LA SOMBRA DE PIEDRAPROFUNDA',
-    desc: 'El Rey Alaric ha despertado un poder antiguo en las profundidades de Bastión Real.',
-    img: 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=600'
-  },
-  {
-    id: 'minas',
-    title: 'LAS MINAS DEL NORTE',
-    desc: 'El invierno eterno oculta secretos que nunca debieron ser desenterrados.',
-    img: 'https://images.unsplash.com/photo-1505118380757-91f5f5832de0?q=80&w=600'
+const formatSaveDate = (rawDate) => {
+  if (!rawDate) return 'SIN FECHA';
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return 'SIN FECHA';
+  return date
+    .toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+    .toUpperCase();
+};
+
+const loadSavedGames = async (userId) => {
+  savesLoading.value = true;
+  savesError.value = '';
+  try {
+    const response = await fetch(`/api/game/saves/${encodeURIComponent(userId)}`);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}`);
+    }
+
+    const saves = await response.json();
+    savedGames.value = Array.isArray(saves)
+      ? saves.map((save) => ({
+          id: save.id || `${save.campaignId || 'save'}-${save.updatedAt || Date.now()}`,
+          title: String(save.title || 'PARTIDA').toUpperCase(),
+          location: String(save.location || 'DESCONOCIDO').toUpperCase(),
+          lastEvent: save.lastEvent || 'Sin eventos recientes.',
+          date: formatSaveDate(save.updatedAt),
+          img: save.img || SAVE_FALLBACK_IMG
+        }))
+      : [];
+  } catch (err) {
+    console.error('No se pudieron cargar las partidas guardadas:', err);
+    savesError.value = 'No se pudieron leer tus partidas guardadas.';
+    savedGames.value = [];
+  } finally {
+    savesLoading.value = false;
   }
-];
+};
 
-onMounted(() => {
+onMounted(async () => {
   const user = JSON.parse(localStorage.getItem('user'));
   if (user && user.username) {
+    const userId = user.id || user._id;
     userInitial.value = user.username.charAt(0).toUpperCase();
     usernameLabel.value = user.username.toUpperCase();
+    if (!userId) {
+      router.push('/login');
+      return;
+    }
+    await Promise.all([loadCampaigns(), loadSavedGames(userId)]);
   } else {
     router.push('/login');
   }
@@ -142,7 +211,7 @@ const startNewGame = (campId) => {
 };
 
 const resumeGame = (id) => {
-  router.push(`/game/${id}`);
+  router.push('/game');
 };
 </script>
 
@@ -309,6 +378,15 @@ $card-bg: rgba(20, 20, 20, 0.9);
   span { font-size: 0.75rem; color: #555; }
 }
 
+.saved-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  .card-body { width: 100%; text-align: center; }
+  &.error { border-color: rgba(255, 100, 100, 0.5); }
+}
+
 .btn-play {
   background: $gold; color: black; border: none; padding: 10px 22px;
   font-weight: bold; cursor: pointer; transition: 0.3s;
@@ -332,6 +410,15 @@ $card-bg: rgba(20, 20, 20, 0.9);
 .btn-close { background: none; border: none; color: #444; font-size: 1.6rem; cursor: pointer; }
 
 .campaign-options { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+
+.campaign-state {
+  grid-column: 1 / -1;
+  color: #999;
+  text-align: center;
+  margin: 0;
+}
+
+.campaign-error { color: #ff7070; }
 
 .camp-option-card {
   background: #111; border: 1px solid #222;

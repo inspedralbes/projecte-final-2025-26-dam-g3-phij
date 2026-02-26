@@ -6,36 +6,40 @@
     </div>
     
     <div class="selector-header">
-      <button class="btn-back" @click="router.push('/UserPage')">← ABANDONAR</button>
+      <button class="btn-back" @click="router.push('/userpage')">← ABANDONAR</button>
       
       <div class="step-indicator">
-        <span class="active">RECLUTAMIENTO: {{ campaignData?.title.toUpperCase() }}</span>
+        <span class="active">RECLUTAMIENTO: {{ (campaignData?.title || 'SIN CAMPAÑA').toUpperCase() }}</span>
       </div>
     </div>
 
     <div class="fade-in">
       <header class="step-title">
         <h1>FORJA TU VANGUARDIA</h1>
-        <p>Selecciona a los héroes que se adentrarán en <strong>{{ campaignData?.location }}</strong>.</p>
+        <p>Selecciona a los héroes que se adentrarán en <strong>{{ campaignData?.location || 'el reino' }}</strong>.</p>
       </header>
 
       <div class="builder-grid">
         <div class="roster">
-          <div 
-            v-for="char in availableCharacters" :key="char.id"
-            class="char-card" :class="{ 'is-selected': isInParty(char.id) }"
-            @click="toggleChar(char)"
-          >
-            <div class="char-avatar-box">
-               <span class="char-icon">{{ char.icon }}</span>
+          <p v-if="isLoadingCampaign" class="campaign-status">Cargando héroes desde la base de datos...</p>
+          <p v-else-if="campaignError" class="campaign-status error">{{ campaignError }}</p>
+          <template v-else>
+            <div 
+              v-for="char in availableCharacters" :key="char.id"
+              class="char-card" :class="{ 'is-selected': isInParty(char.id) }"
+              @click="toggleChar(char)"
+            >
+              <div class="char-avatar-box">
+                 <span class="char-icon">{{ char.icon }}</span>
+              </div>
+              <div class="info">
+                <strong class="char-name">{{ char.name }}</strong>
+                <small class="char-role">{{ char.role }}</small>
+                <p class="char-weapon">{{ char.weapon }}</p>
+              </div>
+              <div class="select-indicator"></div>
             </div>
-            <div class="info">
-              <strong class="char-name">{{ char.name }}</strong>
-              <small class="char-role">{{ char.role }}</small>
-              <p class="char-weapon">{{ char.weapon }}</p>
-            </div>
-            <div class="select-indicator"></div>
-          </div>
+          </template>
         </div>
 
         <div class="summary-panel">
@@ -48,7 +52,7 @@
           </div>
           <p class="party-info" v-if="party.length > 0">{{ party.length }} / 4 Héroes</p>
           
-          <button class="btn-start-adventure" :disabled="party.length === 0" @click="start">
+          <button class="btn-start-adventure" :disabled="party.length === 0 || !campaignData || isLoadingCampaign" @click="start">
             COMENZAR AVENTURA
           </button>
         </div>
@@ -58,39 +62,68 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute();
 const party = ref([]);
+const campaignData = ref(null);
+const isLoadingCampaign = ref(false);
+const campaignError = ref('');
 
-const allCampaigns = {
-  'piedraprofunda': {
-    title: 'La Sombra de Piedraprofunda',
-    location: 'Bastión Real',
-    heroes: [
-      { id: 'kaelen', name: 'Kaelen', role: 'Guerrero', weapon: 'Rompehuesos', icon: '⚔️' },
-      { id: 'vax', name: 'Vax', role: 'Pícaro', weapon: 'Dagas Gemelas', icon: '🗡️' },
-      { id: 'elara', name: 'Elara', role: 'Maga de Sangre', weapon: 'Vínculo Real', icon: '🩸' },
-      { id: 'sorin', name: 'Sorin', role: 'Clérigo Caído', weapon: 'Maza Quebrada', icon: '⚖️' }
-    ]
-  },
-  'minas': {
-    title: 'El Invierno de las Minas',
-    location: 'Minas del Norte',
-    heroes: [
-      { id: 'kaelen', name: 'Kaelen', role: 'Guerrero', weapon: 'Rompehuesos', icon: '⚔️' },
-      { id: 'vax', name: 'Vax', role: 'Pícaro', weapon: 'Dagas Gemelas', icon: '🗡️' },
-      { id: 'elara', name: 'Elara', role: 'Maga de Sangre', weapon: 'Vínculo Real', icon: '🩸' },
-      { id: 'sorin', name: 'Sorin', role: 'Clérigo Caído', weapon: 'Maza Quebrada', icon: '⚖️' }
-    ]
+const campaignId = computed(() => String(route.query.campaign || '').trim());
+const availableCharacters = computed(() => campaignData.value?.heroes || []);
+
+const normalizeHero = (hero) => {
+  const maxHpValue = Number(hero?.maxHp ?? hero?.hp);
+  const maxHp = Number.isFinite(maxHpValue) && maxHpValue > 0 ? maxHpValue : 1;
+  const hpValue = Number(hero?.hp ?? maxHp);
+  const hp = Number.isFinite(hpValue) ? Math.max(0, Math.min(hpValue, maxHp)) : maxHp;
+
+  return {
+    id: String(hero?.id || ''),
+    name: hero?.name || 'Héroe',
+    role: hero?.role || 'Aventurero',
+    weapon: hero?.weapon || '',
+    icon: hero?.icon || '⚔️',
+    hp,
+    maxHp
+  };
+};
+
+const loadCampaign = async () => {
+  if (!campaignId.value) {
+    campaignError.value = 'Campaña no especificada.';
+    campaignData.value = null;
+    return;
+  }
+
+  isLoadingCampaign.value = true;
+  campaignError.value = '';
+  try {
+    const response = await fetch(`/api/game/campaigns/${encodeURIComponent(campaignId.value)}`);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}`);
+    }
+
+    const data = await response.json();
+    campaignData.value = {
+      ...data,
+      heroes: Array.isArray(data?.heroes) ? data.heroes.map(normalizeHero) : []
+    };
+    party.value = [];
+  } catch (err) {
+    console.error('No se pudo cargar la campaña:', err);
+    campaignError.value = 'No se pudo cargar esta campaña desde la base de datos.';
+    campaignData.value = null;
+    party.value = [];
+  } finally {
+    isLoadingCampaign.value = false;
   }
 };
 
-const campaignId = computed(() => route.query.campaign || 'piedraprofunda');
-const campaignData = computed(() => allCampaigns[campaignId.value]);
-const availableCharacters = computed(() => campaignData.value?.heroes || []);
+watch(campaignId, loadCampaign, { immediate: true });
 
 const isInParty = (id) => party.value.some(c => c.id === id);
 
@@ -106,6 +139,10 @@ const toggleChar = (char) => {
 const start = async () => {
   const userStore = JSON.parse(localStorage.getItem('user'));
   const userId = userStore?.id || userStore?._id;
+  if (!campaignData.value) {
+    alert("No se ha cargado una campaña válida.");
+    return;
+  }
 
   if (!userId) {
     alert("Sesión no encontrada. Por favor, inicia sesión de nuevo.");
@@ -114,9 +151,10 @@ const start = async () => {
 
   const sessionData = {
     userId: userId,
-    campaignId: campaignId.value,
+    campaignId: campaignData.value.id || campaignId.value,
     campaignTitle: campaignData.value.title,
     location: campaignData.value.location,
+    currentBackground: campaignData.value.img || '',
     party: party.value,
     turn: 1
   };
@@ -215,6 +253,14 @@ $dark-card: rgba(10, 10, 10, 0.9);
   h1 { font-family: 'Cinzel', serif; color: $gold; letter-spacing: 2px; margin-bottom: 10px; }
   p { color: #888; font-style: italic; }
 }
+
+.campaign-status {
+  color: #777;
+  text-align: center;
+  padding: 20px;
+}
+
+.campaign-status.error { color: #ff7070; }
 
 .builder-grid {
   display: grid;
