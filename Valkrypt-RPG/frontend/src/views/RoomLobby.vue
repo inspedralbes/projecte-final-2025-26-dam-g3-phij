@@ -107,8 +107,6 @@ const newRoom = ref({
 });
 
 const loading = ref(false);
-
-// set of codes for rooms we've visited (could be persisted later)
 const visitedRooms = ref(new Set());
 const visitedRoomsKey = 'visitedRooms';
 const loadingRooms = ref(false);
@@ -155,9 +153,7 @@ const createRoom = async () => {
     if (response.data.success) {
       success.value = 'Room created! Joining...';
       newRoom.value.roomName = '';
-      setTimeout(() => {
-        router.push({ name: 'GameRoom', params: { roomCode: response.data.room.roomCode } });
-      }, 1000);
+      setTimeout(() => router.push({ name: 'GameRoom', params: { roomCode: response.data.room.roomCode } }), 1000);
     }
   } catch (err) {
     console.error('Error creating room:', err);
@@ -181,13 +177,9 @@ const joinRoom = async (room) => {
     });
     if (response.data.success) {
       success.value = 'Joined room! Entering game...';
-      // record that we've visited this room
       visitedRooms.value.add(room.roomCode);
-      // persist history list
       localStorage.setItem(visitedRoomsKey, JSON.stringify([...visitedRooms.value]));
-      setTimeout(() => {
-        router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } });
-      }, 1000);
+      setTimeout(() => router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } }), 1000);
     }
   } catch (err) {
     console.error('Error joining room:', err);
@@ -197,20 +189,18 @@ const joinRoom = async (room) => {
   }
 };
 
-// allow explicit re-entry from the lobby cards
 const reenterRoom = async (room) => {
   await joinRoom(room);
 };
 
 const backToMenu = () => {
-  router.push({ name: 'character' });
+  router.push({ name: 'friends' });
 };
 
 
 
 let refreshInterval;
 onMounted(() => {
-  // restore history of visited rooms
   try {
     const stored = JSON.parse(localStorage.getItem(visitedRoomsKey) || '[]');
     stored.forEach(code => visitedRooms.value.add(code));
@@ -448,12 +438,6 @@ section {
   border: 1px solid $gold;
 }
 
-.room-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .btn-join {
   flex: 1;
   background: linear-gradient(135deg, $green 0%, #1e8449 100%);
@@ -477,7 +461,6 @@ section {
   }
 }
 
-/* re-enter button styling */
 .btn-reenter {
   flex: 1;
   background: linear-gradient(135deg, $gold 0%, #c9a632 100%);

@@ -1,6 +1,5 @@
 const WebSocket = require('ws');
 
-// store by room code
 const wsRooms = new Map();
 
 class WebSocketManager {
@@ -11,10 +10,9 @@ class WebSocketManager {
     }
 
     handleConnection(ws) {
-        console.log('⚔️ WebSocket client connected');
         ws.on('message', (data) => this.handleMessage(ws, data));
         ws.on('close', () => this.handleDisconnect(ws));
-        ws.on('error', (err) => console.error('WS error', err));
+        ws.on('error', (err) => console.error('WebSocket error', err));
     }
 
     handleMessage(ws, data) {
@@ -32,11 +30,7 @@ class WebSocketManager {
                     this.broadcast(roomCode, { ...msg, type: 'playerAction' }, ws);
                     break;
                 case 'chatMessage':
-                    this.broadcast(roomCode, msg, ws);
-                    break;
                 case 'updateGameState':
-                    this.broadcast(roomCode, msg, ws);
-                    break;
                 case 'startGame':
                     this.broadcast(roomCode, msg, ws);
                     break;
@@ -44,11 +38,11 @@ class WebSocketManager {
                     ws.send(JSON.stringify({ type: 'pong' }));
                     break;
                 default:
-                    console.log('Unknown ws message type', type);
+                    console.error('Unknown message type:', type);
             }
         } catch (error) {
-            console.error('WS parse error', error);
-            ws.send(JSON.stringify({ type: 'error', message: 'invalid format' }));
+            console.error('WebSocket parse error:', error);
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
         }
     }
 

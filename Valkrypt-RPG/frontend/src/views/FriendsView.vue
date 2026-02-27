@@ -40,7 +40,6 @@ onMounted(() => {
     router.push('/login');
     return;
   }
-  // load friends list (temporary, could fetch from backend later)
   friends.value = user.friends || [];
 });
 
