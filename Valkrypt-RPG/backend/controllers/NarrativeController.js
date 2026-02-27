@@ -3,6 +3,8 @@ const { ObjectId } = require('mongodb');
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_HISTORY_ITEMS = 14;
+const MAX_OUTPUT_TOKENS = 65535;
+const DEFAULT_DAY_LIMIT = 7;
 
 const SYSTEM_PROMPT = `Eres el narrador principal de "Valkrypt", un RPG de fantasía oscura.
 Reglas globales:
@@ -81,29 +83,95 @@ function normalizeHero(rawHero) {
     };
 }
 
+function toPositiveInt(value, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.floor(parsed);
+}
+
+function buildCampaignIdQuery(campaignId) {
+    const normalizedId = String(campaignId || '').trim();
+    const query = [
+        { id: normalizedId },
+        { slug: normalizedId }
+    ];
+
+    if (ObjectId.isValid(normalizedId)) {
+        query.push({ _id: new ObjectId(normalizedId) });
+    }
+    return query;
+}
+
+async function findCampaignByAnyId(db, campaignId) {
+    const normalizedId = String(campaignId || '').trim();
+    if (!normalizedId) return null;
+    return db.collection('campaigns').findOne({
+        $and: [
+            { $or: buildCampaignIdQuery(normalizedId) },
+            { active: { $ne: false } }
+        ]
+    });
+}
+
+function buildIntroText(campaignTitle, locationName) {
+    return `La crónica "${campaignTitle}" comienza en ${locationName}. Las decisiones del grupo moldearán el destino del reino. Nadie conoce aún la magnitud de lo que aguarda bajo la piedra.`;
+}
+
+function buildTutorialText(dayLimit) {
+    return `TUTORIAL DE CAMPAÑA:\n1) Cada acción consume tiempo y avanza el calendario.\n2) Vigila el estado del grupo y el contexto antes de decidir.\n3) La campaña termina cuando se agotan los días del capítulo.\n4) Te quedan ${dayLimit} días para resolver esta misión principal.`;
+}
+
 function normalizeCampaign(rawCampaign) {
     const id = rawCampaign?.id || rawCampaign?.slug || (rawCampaign?._id ? String(rawCampaign._id) : '');
+    const title = rawCampaign?.title || 'Campaña sin título';
+    const location = rawCampaign?.location || 'Ubicación desconocida';
+    const dayLimit = toPositiveInt(rawCampaign?.dayLimit, DEFAULT_DAY_LIMIT);
+
     return {
         id,
-        title: rawCampaign?.title || 'Campaña sin título',
+        title,
         desc: rawCampaign?.desc || '',
-        location: rawCampaign?.location || 'Ubicación desconocida',
+        location,
         img: rawCampaign?.img || '',
+        dayLimit,
+        introText: rawCampaign?.introText || buildIntroText(title, location),
+        tutorialText: rawCampaign?.tutorialText || buildTutorialText(dayLimit),
         heroes: Array.isArray(rawCampaign?.heroes) ? rawCampaign.heroes.map(normalizeHero) : []
     };
 }
 
+function enrichSaveState(rawSave) {
+    const dayLimit = toPositiveInt(rawSave?.dayLimit, DEFAULT_DAY_LIMIT);
+    const saveDay = toPositiveInt(rawSave?.day, 1);
+    const day = Math.max(1, Math.min(saveDay, dayLimit));
+    const chapterStatus = rawSave?.chapterStatus === 'completed' ? 'completed' : 'active';
+    const chapterEnded = chapterStatus === 'completed';
+
+    return {
+        ...rawSave,
+        day,
+        dayLimit,
+        daysRemaining: Math.max(0, dayLimit - day),
+        chapterStatus,
+        chapterEnded
+    };
+}
+
 function normalizeSaveSummary(rawSave) {
-    const history = Array.isArray(rawSave?.history) ? rawSave.history : [];
+    const saveState = enrichSaveState(rawSave);
+    const history = Array.isArray(saveState?.history) ? saveState.history : [];
     const lastEntry = history.length > 0 ? history[history.length - 1] : null;
     return {
-        id: rawSave?._id ? String(rawSave._id) : '',
-        campaignId: rawSave?.campaignId || '',
-        title: rawSave?.campaignTitle || 'Partida sin título',
-        location: rawSave?.locationName || 'Desconocido',
+        id: saveState?._id ? String(saveState._id) : '',
+        campaignId: saveState?.campaignId || '',
+        title: saveState?.campaignTitle || 'Partida sin título',
+        location: saveState?.locationName || 'Desconocido',
         lastEvent: lastEntry?.content || 'Sin eventos recientes.',
-        updatedAt: rawSave?.updatedAt || rawSave?.createdAt || null,
-        img: rawSave?.currentBackground || ''
+        updatedAt: saveState?.updatedAt || saveState?.createdAt || null,
+        img: saveState?.currentBackground || '',
+        day: saveState.day,
+        dayLimit: saveState.dayLimit,
+        chapterStatus: saveState.chapterStatus
     };
 }
 
@@ -129,22 +197,7 @@ class NarrativeController {
             if (!campaignId) {
                 return res.status(400).json({ error: 'campaignId requerido' });
             }
-
-            const query = [
-                { id: campaignId },
-                { slug: campaignId }
-            ];
-
-            if (ObjectId.isValid(campaignId)) {
-                query.push({ _id: new ObjectId(campaignId) });
-            }
-
-            const campaign = await db.collection('campaigns').findOne({
-                $and: [
-                    { $or: query },
-                    { active: { $ne: false } }
-                ]
-            });
+            const campaign = await findCampaignByAnyId(db, campaignId);
 
             if (!campaign) {
                 return res.status(404).json({ error: 'Campaña no encontrada' });
@@ -163,7 +216,7 @@ class NarrativeController {
             if (!userId || userId === 'undefined') return res.status(400).json({ error: "ID no válido" });
             const save = await db.collection('saves').findOne({ userId: new ObjectId(userId) });
             if (!save) return res.status(404).json({ error: "No save found" });
-            res.json(save);
+            res.json(enrichSaveState(save));
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -193,41 +246,106 @@ class NarrativeController {
         try {
             const db = getDB();
             const { userId, action } = req.body;
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID de usuario no válido" });
+            }
+            const safeAction = action && typeof action === 'object' ? action : { type: 'action', label: 'Acción' };
+            const userObjectId = new ObjectId(userId);
 
-            if (action.type === 'init') {
+            if (safeAction.type === 'init') {
+                const sessionData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
+                const campaignRecord = await findCampaignByAnyId(db, sessionData.campaignId);
+                const campaignData = campaignRecord
+                    ? normalizeCampaign(campaignRecord)
+                    : normalizeCampaign({
+                        id: sessionData.campaignId,
+                        title: sessionData.campaignTitle,
+                        location: sessionData.location,
+                        img: sessionData.currentBackground || sessionData.img,
+                        dayLimit: sessionData.dayLimit
+                    });
+                const dayLimit = toPositiveInt(campaignData.dayLimit, DEFAULT_DAY_LIMIT);
+                const introText = campaignData.introText || buildIntroText(campaignData.title, campaignData.location);
+                const tutorialText = campaignData.tutorialText || buildTutorialText(dayLimit);
                 const newSave = {
-                    userId: new ObjectId(userId),
-                    campaignId: action.data.campaignId || '',
-                    campaignTitle: action.data.campaignTitle,
-                    locationName: action.data.location,
-                    currentBackground: action.data.currentBackground || action.data.img || '',
-                    party: action.data.party,
-                    history: [{ type: 'narrative', content: `El grupo compuesto por ${action.data.party.map(p => p.name).join(', ')} comienza su viaje en ${action.data.location}.` }],
+                    userId: userObjectId,
+                    campaignId: campaignData.id || sessionData.campaignId || '',
+                    campaignTitle: campaignData.title,
+                    locationName: campaignData.location,
+                    currentBackground: campaignData.img || sessionData.currentBackground || sessionData.img || '',
+                    party: Array.isArray(sessionData.party) ? sessionData.party : [],
+                    history: [
+                        { type: 'narrative', content: introText },
+                        { type: 'narrative', content: tutorialText },
+                        { type: 'narrative', content: `Día 1 de ${dayLimit}. El capítulo comienza ahora.` }
+                    ],
                     currentOptions: [
                         { id: 'explorar', label: 'Explorar la zona', type: 'narrative' },
-                        { id: 'avanzar', label: 'Avanzar por el sendero', type: 'narrative' }
+                        { id: 'avanzar', label: 'Avanzar por el sendero', type: 'narrative' },
+                        { id: 'revisar_equipo', label: 'Revisar equipo y recursos', type: 'narrative' }
                     ],
+                    day: 1,
+                    dayLimit,
+                    chapterStatus: 'active',
                     turn: 1,
                     updatedAt: new Date()
                 };
-                await db.collection('saves').updateOne({ userId: new ObjectId(userId) }, { $set: newSave }, { upsert: true });
-                return res.json(newSave);
+                await db.collection('saves').updateOne({ userId: userObjectId }, { $set: newSave }, { upsert: true });
+                return res.json({
+                    ...enrichSaveState(newSave),
+                    narratorEnabled: false,
+                    chapterEnded: false
+                });
             }
 
-            const currentSave = await db.collection('saves').findOne({ userId: new ObjectId(userId) });
+            const currentSave = await db.collection('saves').findOne({ userId: userObjectId });
             if (!currentSave) return res.status(404).json({ error: "Save not found" });
+            const saveState = enrichSaveState(currentSave);
+            if (saveState.chapterEnded) {
+                return res.json({
+                    ...saveState,
+                    narratorEnabled: false,
+                    chapterEnded: true
+                });
+            }
 
-            await db.collection('saves').updateOne(
-                { userId: new ObjectId(userId) },
-                { 
-                    $push: { history: { type: action.type, content: `Acción: ${action.label}` } },
-                    $set: { updatedAt: new Date() },
-                    $inc: { turn: 1 }
-                }
-            );
+            const actionType = safeAction.type || 'action';
+            const actionLabel = safeAction.label || 'Acción';
+            const history = Array.isArray(currentSave.history) ? [...currentSave.history] : [];
+            history.push({ type: actionType, content: `Acción: ${actionLabel}` });
 
-            const updated = await db.collection('saves').findOne({ userId: new ObjectId(userId) });
-            res.json(updated);
+            const nextDayCandidate = saveState.day + 1;
+            const chapterEnded = nextDayCandidate > saveState.dayLimit;
+            const day = chapterEnded ? saveState.dayLimit : nextDayCandidate;
+            const chapterStatus = chapterEnded ? 'completed' : 'active';
+
+            if (chapterEnded) {
+                history.push({
+                    type: 'narrative',
+                    content: `El Día ${saveState.dayLimit} se cierra y concluye este capítulo de la campaña. El grupo ha alcanzado el límite de tiempo para esta misión.`
+                });
+            }
+
+            const updatePayload = {
+                history,
+                day,
+                dayLimit: saveState.dayLimit,
+                chapterStatus,
+                turn: toPositiveInt(currentSave.turn, 1) + 1,
+                updatedAt: new Date()
+            };
+            if (chapterEnded) {
+                updatePayload.currentOptions = [];
+            }
+
+            await db.collection('saves').updateOne({ userId: userObjectId }, { $set: updatePayload });
+
+            const updated = await db.collection('saves').findOne({ userId: userObjectId });
+            res.json({
+                ...enrichSaveState(updated),
+                narratorEnabled: !chapterEnded,
+                chapterEnded
+            });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -251,7 +369,7 @@ class NarrativeController {
                 body: JSON.stringify({
                     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
                     contents: history,
-                    generationConfig: { temperature: 0.9, maxOutputTokens: 1000 }
+                    generationConfig: { temperature: 0.9, maxOutputTokens: MAX_OUTPUT_TOKENS }
                 })
             });
 

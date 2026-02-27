@@ -155,6 +155,7 @@ const start = async () => {
     campaignTitle: campaignData.value.title,
     location: campaignData.value.location,
     currentBackground: campaignData.value.img || '',
+    dayLimit: campaignData.value.dayLimit,
     party: party.value,
     turn: 1
   };

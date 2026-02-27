@@ -50,6 +50,9 @@ const campaigns = [
     desc: 'Cuatro condenados por la Corona son enviados a las minas de Piedraprofunda para cerrar una Grieta Mayor antes de que el Abismo devore Valkrypt.',
     location: 'Minas de Piedraprofunda',
     img: 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=600',
+    dayLimit: 9,
+    introText: 'La Corona ha marcado a tu escuadra para una misión urgente en Piedraprofunda. El objetivo oficial es investigar la desaparición de los convoyes mineros. Lo que hallaréis allí pondrá a prueba vuestra lealtad, vuestra sangre y vuestra capacidad de decidir bajo presión.',
+    tutorialText: 'TUTORIAL: Cada decisión consume tiempo. Lee el historial antes de actuar, coordina al grupo y prioriza objetivos. Esta campaña tiene 9 días: cuando se agoten, el capítulo terminará con el estado que hayas logrado.',
     active: true,
     lore: {
       sourceTitle: 'Valkrypt (PDF)',
@@ -74,6 +77,9 @@ const campaigns = [
     desc: 'Tras Piedraprofunda, la corte prepara las Minas del Norte para la Gran Apertura. El invierno trae cultos, anomalías y una guerra por la barrera entre mundos.',
     location: 'Minas del Norte',
     img: 'https://images.unsplash.com/photo-1505118380757-91f5f5832de0?q=80&w=600',
+    dayLimit: 11,
+    introText: 'El eco de Piedraprofunda todavía no se ha extinguido y ya llegan informes peores desde el Norte. Tu escuadra entra en un territorio congelado donde la logística, la moral y el tiempo son tan letales como cualquier criatura del Abismo.',
+    tutorialText: 'TUTORIAL: Gestiona riesgos por día, evita combates innecesarios y conserva recursos para eventos críticos. Esta campaña dispone de 11 días de capítulo antes del cierre narrativo.',
     active: true,
     lore: {
       sourceTitle: 'Valkrypt (PDF)',
@@ -110,4 +116,3 @@ seedCampaigns()
     console.error('Error seeding campaigns:', error);
     process.exit(1);
   });
-

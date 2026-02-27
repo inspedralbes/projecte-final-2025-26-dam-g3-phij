@@ -20,6 +20,10 @@
             <i class="fas fa-map-marker-alt"></i>
             <span>{{ locationName.toUpperCase() }}</span>
           </div>
+          <div class="day-track">
+            <span>DÍA {{ day }} / {{ dayLimit }}</span>
+            <small>QUEDAN {{ daysRemaining }} DÍAS</small>
+          </div>
         </div>
       </div>
 
@@ -77,8 +81,15 @@
           </div>
         </div>
 
-        <footer class="action-bar" :class="{ 'bar-disabled': isTyping }">
-          <div class="action-grid">
+        <footer class="action-bar" :class="{ 'bar-disabled': isTyping && !chapterEnded }">
+          <div v-if="chapterEnded" class="chapter-end">
+            <h3>FIN DEL CAPÍTULO</h3>
+            <p>Se agotaron los días disponibles para esta campaña. Puedes volver al bastión y preparar la siguiente etapa.</p>
+            <button class="btn-action-fantasy" @click="toggleMenu">
+              VOLVER AL BASTIÓN
+            </button>
+          </div>
+          <div v-else class="action-grid">
             <button 
               v-for="option in currentOptions" 
               :key="option.id" 
@@ -89,6 +100,9 @@
             >
               <span class="btn-inner">{{ option.label }}</span>
             </button>
+            <p v-if="!isTyping && currentOptions.length === 0" class="no-options">
+              Sin decisiones disponibles ahora mismo. Espera la siguiente respuesta del narrador.
+            </p>
           </div>
         </footer>
       </main>
@@ -132,6 +146,30 @@ const currentBackground = ref("");
 const party = ref([]);
 const history = ref([]);
 const currentOptions = ref([]);
+const day = ref(1);
+const dayLimit = ref(7);
+const daysRemaining = ref(6);
+const chapterEnded = ref(false);
+
+const applySaveState = (save) => {
+  if (!save || typeof save !== 'object') return;
+  campaignTitle.value = save.campaignTitle || campaignTitle.value;
+  locationName.value = save.locationName || locationName.value;
+  currentBackground.value = save.currentBackground || currentBackground.value;
+  party.value = Array.isArray(save.party) ? save.party : party.value;
+  history.value = Array.isArray(save.history) ? save.history : history.value;
+  currentOptions.value = Array.isArray(save.currentOptions) ? save.currentOptions : currentOptions.value;
+  day.value = Number.isFinite(Number(save.day)) ? Number(save.day) : day.value;
+  dayLimit.value = Number.isFinite(Number(save.dayLimit)) ? Number(save.dayLimit) : dayLimit.value;
+  daysRemaining.value = Number.isFinite(Number(save.daysRemaining))
+    ? Number(save.daysRemaining)
+    : Math.max(0, dayLimit.value - day.value);
+  chapterEnded.value = Boolean(
+    save.chapterEnded ||
+    save.chapterStatus === 'completed' ||
+    (day.value >= dayLimit.value && currentOptions.value.length === 0)
+  );
+};
 
 
 const fetchGameState = async () => {
@@ -143,11 +181,7 @@ const fetchGameState = async () => {
     const response = await fetch(`/api/game/load/${userId.value}`);
     const data = await response.json();
     if (response.ok) {
-      locationName.value = data.locationName || "Desconocido";
-      currentBackground.value = data.currentBackground;
-      party.value = data.party || [];
-      history.value = data.history || [];
-      currentOptions.value = data.currentOptions || [];
+      applySaveState(data);
       await scrollToBottom();
     }
   } catch (err) {
@@ -169,8 +203,11 @@ const handleAction = async (option) => {
     
     const newState = await res.json();
     if (res.ok) {
-      history.value = newState.history;
-      currentOptions.value = [];
+      applySaveState(newState);
+      if (newState.narratorEnabled === false || newState.chapterEnded) {
+        await scrollToBottom();
+        return;
+      }
       await callNarrator(option.label);
     }
   } catch (err) {
@@ -190,9 +227,17 @@ const callNarrator = async (playerAction) => {
           role: h.type === 'narrative' ? 'model' : 'user', 
           text: h.content 
         })),
-        worldSeed: `Contexto: ${locationName.value}`
+        worldSeed: `Contexto: ${locationName.value}. Día ${day.value} de ${dayLimit.value}. Días restantes: ${daysRemaining.value}`
       })
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Stream ${response.status}: ${errorText}`);
+    }
+    if (!response.body) {
+      throw new Error('Stream sin body');
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -218,7 +263,11 @@ const callNarrator = async (playerAction) => {
     }
 
    
-    processFinalTags(fullOutput);
+    const parsedOptions = processFinalTags(fullOutput);
+    if (parsedOptions.length > 0) {
+      currentOptions.value = parsedOptions;
+    }
+    await scrollToBottom();
   } catch (err) {
     console.error("Error en stream:", err);
   } finally {
@@ -227,14 +276,52 @@ const callNarrator = async (playerAction) => {
 };
 
 const processFinalTags = (text) => {
-  const decisions = text.match(/<DECISIONES>([\s\S]*?)<\/DECISIONES>/);
-  if (decisions) {
-    const lines = decisions[1].trim().split('\n');
-    currentOptions.value = lines.map(line => {
-      const m = line.match(/\[id:(.*?)\]\s*(.*)/);
-      return m ? { id: m[1], label: m[2], type: 'narrative' } : null;
-    }).filter(o => o);
+  if (!text || typeof text !== 'string') return [];
+
+  const openTag = '<DECISIONES>';
+  const closeTag = '</DECISIONES>';
+  const openIdx = text.indexOf(openTag);
+  if (openIdx === -1) return [];
+
+  let block = text.slice(openIdx + openTag.length);
+  const closeIdx = block.indexOf(closeTag);
+  if (closeIdx !== -1) {
+    block = block.slice(0, closeIdx);
   }
+
+  const eventsIdx = block.indexOf('<EVENTOS>');
+  if (eventsIdx !== -1) {
+    block = block.slice(0, eventsIdx);
+  }
+
+  const toId = (label, i) => {
+    const base = String(label || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40);
+    return base || `opcion_${Date.now()}_${i + 1}`;
+  };
+
+  return block
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const withId = line.match(/\[id:([^\]]+)\]\s*(.*)/i);
+      if (withId) {
+        return { id: withId[1].trim(), label: withId[2].trim(), type: 'narrative' };
+      }
+
+      const numbered = line.match(/^\d+\)\s*(.*)/);
+      if (numbered && numbered[1].trim()) {
+        const label = numbered[1].trim();
+        return { id: toId(label, i), label, type: 'narrative' };
+      }
+
+      return null;
+    })
+    .filter((option) => option && option.label);
 };
 
 const scrollToBottom = async () => {
@@ -285,6 +372,14 @@ $border-alpha: rgba(197, 160, 89, 0.2);
     text-align: center;
     .campaign-name { font-size: 0.7rem; color: #777; letter-spacing: 3px; font-family: 'Cinzel'; }
     .location-tag { color: $gold; font-family: 'Cinzel'; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px rgba($gold, 0.5); }
+    .day-track {
+      margin-top: 6px;
+      color: #999;
+      font-family: 'Cinzel';
+      letter-spacing: 1px;
+      span { font-size: 0.75rem; }
+      small { display: block; font-size: 0.65rem; color: #666; }
+    }
   }
 }
 
@@ -341,6 +436,23 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   padding: 40px 0; border-top: 1px solid rgba($gold, 0.1);
   &.bar-disabled { opacity: 0.5; pointer-events: none; }
   .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+}
+
+.chapter-end {
+  text-align: center;
+  border: 1px solid rgba($gold, 0.35);
+  background: rgba($gold, 0.04);
+  padding: 24px;
+  h3 { font-family: 'Cinzel'; color: $gold; margin-bottom: 10px; letter-spacing: 2px; }
+  p { color: #aaa; margin-bottom: 16px; font-size: 0.9rem; }
+}
+
+.no-options {
+  grid-column: 1 / -1;
+  color: #777;
+  text-align: center;
+  font-family: 'Cinzel';
+  font-size: 0.85rem;
 }
 
 .btn-action-fantasy {
