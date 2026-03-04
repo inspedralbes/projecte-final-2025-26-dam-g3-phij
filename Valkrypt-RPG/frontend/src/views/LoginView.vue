@@ -39,8 +39,13 @@ const handleLogin = async () => {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        router.push('/UserPage');
+        router.push('/userpage');
       } else {
+        if (data.needsVerification) {
+          localStorage.setItem('temp_user', username.value);
+          router.push('/verify');
+          return;
+        }
         alert(data.error || "Credenciales incorrectas");
       }
     } else {

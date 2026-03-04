@@ -1,0 +1,148 @@
+const WebSocket = require('ws');
+
+const wsRooms = new Map();
+
+class WebSocketManager {
+    constructor(server) {
+        this.wss = new WebSocket.Server({ server, path: '/ws', clientTracking: true });
+        this.wss.on('connection', (ws) => this.handleConnection(ws));
+        console.log('⚔️ WebSocket Manager initialized');
+    }
+
+    handleConnection(ws) {
+        ws.on('message', (data) => this.handleMessage(ws, data));
+        ws.on('close', () => this.handleDisconnect(ws));
+        ws.on('error', (err) => console.error('WebSocket error', err));
+    }
+
+    handleMessage(ws, data) {
+        try {
+            const msg = JSON.parse(data);
+            const { type, roomCode, userId, username, payload } = msg;
+            switch (type) {
+                case 'joinRoom':
+                    this.joinRoom(ws, roomCode, userId, username);
+                    break;
+                case 'leaveRoom':
+                    this.leaveRoom(ws, roomCode);
+                    break;
+                case 'gameAction':
+                    this.broadcast(roomCode, {
+                        type: 'playerAction',
+                        roomCode,
+                        userId,
+                        username,
+                        action: payload?.action || '',
+                        message: payload?.message || ''
+                    }, ws);
+                    break;
+                case 'chatMessage':
+                    this.broadcast(roomCode, {
+                        type: 'chat',
+                        roomCode,
+                        username,
+                        message: payload?.message || ''
+                    }, ws);
+                    break;
+                case 'startGame':
+                    this.broadcast(roomCode, {
+                        type: 'gameStarted',
+                        roomCode,
+                        userId,
+                        username
+                    }, ws);
+                    break;
+                case 'updateGameState':
+                    this.broadcast(roomCode, {
+                        type: 'gameStateUpdated',
+                        roomCode,
+                        payload: payload || {}
+                    }, ws);
+                    break;
+                case 'ping':
+                    ws.send(JSON.stringify({ type: 'pong' }));
+                    break;
+                default:
+                    console.error('Unknown message type:', type);
+            }
+        } catch (error) {
+            console.error('WebSocket parse error:', error);
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+        }
+    }
+
+    joinRoom(ws, roomCode, userId, username) {
+        ws.roomCode = roomCode;
+        ws.userId = userId;
+        ws.username = username;
+        if (!wsRooms.has(roomCode)) wsRooms.set(roomCode, []);
+        wsRooms.get(roomCode).push(ws);
+        ws.send(JSON.stringify({ type: 'joined', roomCode, userId, username, players: wsRooms.get(roomCode).length }));
+        this.broadcast(roomCode, {
+            type: 'playerJoined',
+            roomCode,
+            userId,
+            username,
+            totalPlayers: wsRooms.get(roomCode).length
+        }, ws);
+    }
+
+    leaveRoom(ws, roomCode) {
+        const room = wsRooms.get(roomCode);
+        if (room) {
+            const idx = room.indexOf(ws);
+            if (idx > -1) room.splice(idx, 1);
+            if (room.length === 0) wsRooms.delete(roomCode);
+            else this.broadcast(roomCode, {
+                type: 'playerLeft',
+                roomCode,
+                userId: ws.userId,
+                username: ws.username,
+                totalPlayers: room.length
+            });
+        }
+        ws.close();
+    }
+
+    handleDisconnect(ws) {
+        if (ws.roomCode) {
+            const room = wsRooms.get(ws.roomCode);
+            if (room) {
+                const idx = room.indexOf(ws);
+                if (idx > -1) room.splice(idx, 1);
+                if (room.length === 0) wsRooms.delete(ws.roomCode);
+                else this.broadcast(ws.roomCode, {
+                    type: 'playerLeft',
+                    roomCode: ws.roomCode,
+                    userId: ws.userId,
+                    username: ws.username,
+                    totalPlayers: room.length
+                });
+            }
+        }
+    }
+
+    broadcast(roomCode, message, except = null) {
+        const room = wsRooms.get(roomCode);
+        if (!room) return;
+        const data = JSON.stringify(message);
+        room.forEach(s => {
+            if (s !== except && s.readyState === WebSocket.OPEN) s.send(data);
+        });
+    }
+
+    getAllRoomsInfo() {
+        const list = [];
+        wsRooms.forEach((room, code) => {
+            list.push({ roomCode: code, playerCount: room.length });
+        });
+        return list;
+    }
+
+    getRoomInfo(roomCode) {
+        const room = wsRooms.get(roomCode) || [];
+        return { roomCode, playerCount: room.length };
+    }
+}
+
+module.exports = WebSocketManager;

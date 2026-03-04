@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { presenceService } from './services/presenceService'
 import './assets/styles/main.scss'
 
 const RUNTIME_RESET_VERSION = '2026-02-25-runtime-reset-1';
@@ -17,3 +18,7 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.mount('#app')
+presenceService.start()
+router.afterEach(() => {
+  presenceService.heartbeat()
+})

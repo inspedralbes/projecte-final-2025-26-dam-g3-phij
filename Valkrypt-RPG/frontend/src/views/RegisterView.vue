@@ -62,7 +62,11 @@ const handleRegister = async () => {
 
     const data = await response.json();
     if (data.success) {
-      router.push('/login');
+      localStorage.setItem('temp_user', username.value);
+      if (data.debugCode) {
+        alert(`Codigo OTP de desarrollo: ${data.debugCode}`);
+      }
+      router.push('/verify');
     }
   } catch (err) {
     alert(err.message);

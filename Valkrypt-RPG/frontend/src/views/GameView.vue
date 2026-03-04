@@ -81,7 +81,7 @@
           </div>
         </div>
 
-        <footer class="action-bar" :class="{ 'bar-disabled': isTyping && !chapterEnded }">
+        <footer class="action-bar" :class="{ 'bar-disabled': (isTyping || isSubmittingAction) && !chapterEnded }">
           <div v-if="chapterEnded" class="chapter-end">
             <h3>FIN DEL CAPÍTULO</h3>
             <p>Se agotaron los días disponibles para esta campaña. Puedes volver al bastión y preparar la siguiente etapa.</p>
@@ -96,7 +96,7 @@
               @click="handleAction(option)" 
               class="btn-action-fantasy"
               :class="{ 'btn-danger': option.type === 'combat' }"
-              :disabled="isTyping"
+              :disabled="isTyping || isSubmittingAction"
             >
               <span class="btn-inner">{{ option.label }}</span>
             </button>
@@ -114,16 +114,24 @@
           <h3>ALIANZAS ACTIVAS</h3>
           <button class="close-btn" @click="showFriends = false">✕</button>
         </div>
-        <div class="friends-list">
-          <div class="friend-card online">
+        <div v-if="alliancePreview.length === 0" class="friends-empty">
+          Sin aliados cargados todavía.
+        </div>
+        <div v-else class="friends-list">
+          <div
+            v-for="friend in alliancePreview"
+            :key="friend.username"
+            class="friend-card"
+            :class="friend.status"
+          >
             <div class="status-dot"></div>
-            <div class="f-info"><strong>Marco_Dam</strong> <small>En Bastión Real</small></div>
-          </div>
-          <div class="friend-card offline">
-            <div class="status-dot"></div>
-            <div class="f-info"><strong>Jordi_66</strong> <small>Desconectado</small></div>
+            <div class="f-info">
+              <strong>{{ friend.username }}</strong>
+              <small>{{ friend.statusLabel }}</small>
+            </div>
           </div>
         </div>
+        <button class="btn-go-friends" @click="goToFriendsHub">VER PANEL COMPLETO</button>
       </div>
     </transition>
   </div>
@@ -133,10 +141,16 @@
 import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
+const ACTION_TIMEOUT_MS = 15000;
+const STREAM_TIMEOUT_MS = 90000;
+const ACTION_MAX_RETRIES = 2;
+const NARRATION_SYNC_MAX_RETRIES = 2;
+const MAX_STREAM_CHARS = 12000;
 
 const router = useRouter();
 const logContainer = ref(null);
 const isTyping = ref(false);
+const isSubmittingAction = ref(false);
 const showFriends = ref(false);
 
 const userId = ref(null);
@@ -150,6 +164,34 @@ const day = ref(1);
 const dayLimit = ref(7);
 const daysRemaining = ref(6);
 const chapterEnded = ref(false);
+const alliancePreview = ref([]);
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const generateRequestId = () => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `act_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = ACTION_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const parseJsonResponse = async (response) => {
+  const rawBody = await response.text();
+  if (!rawBody) return {};
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return { error: rawBody };
+  }
+};
 
 const applySaveState = (save) => {
   if (!save || typeof save !== 'object') return;
@@ -171,6 +213,117 @@ const applySaveState = (save) => {
   );
 };
 
+const extractNarrativeText = (fullOutput) => {
+  if (!fullOutput || typeof fullOutput !== 'string') return '';
+  const blockMatch = fullOutput.match(/<NARRATIVA>([\s\S]*?)<\/NARRATIVA>/i);
+  if (blockMatch?.[1]) return blockMatch[1].trim();
+
+  return fullOutput
+    .split('<DECISIONES>')[0]
+    .replace(/<\/?NARRATIVA>/gi, '')
+    .trim();
+};
+
+const syncNarration = async (requestId, narrativeText, options) => {
+  if (!userId.value || !requestId) return;
+
+  const payload = {
+    userId: userId.value,
+    action: {
+      type: 'narration_sync',
+      requestId,
+      data: {
+        requestId,
+        narrative: narrativeText || '',
+        options: Array.isArray(options) ? options : []
+      }
+    }
+  };
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= NARRATION_SYNC_MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        '/api/game/action',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        },
+        ACTION_TIMEOUT_MS
+      );
+
+      const data = await parseJsonResponse(response);
+      if (response.ok) {
+        applySaveState(data);
+        return;
+      }
+
+      const canRetry = (response.status === 409 || data.retryable) && attempt < NARRATION_SYNC_MAX_RETRIES;
+      if (canRetry) {
+        await wait(300 * (attempt + 1));
+        continue;
+      }
+      throw new Error(data.error || `Error al sincronizar narración (${response.status})`);
+    } catch (err) {
+      lastError = err;
+      const canRetryNetwork = (err?.name === 'AbortError' || /fetch|network/i.test(String(err?.message || '')))
+        && attempt < NARRATION_SYNC_MAX_RETRIES;
+      if (canRetryNetwork) {
+        await wait(300 * (attempt + 1));
+        continue;
+      }
+      break;
+    }
+  }
+
+  if (lastError) {
+    console.error('No se pudo sincronizar narración en DB:', lastError);
+  }
+};
+
+const submitAction = async (optionPayload) => {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= ACTION_MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        '/api/game/action',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId.value,
+            action: optionPayload
+          })
+        },
+        ACTION_TIMEOUT_MS
+      );
+
+      const data = await parseJsonResponse(response);
+      if (response.ok) return data;
+
+      const canRetry = (response.status === 409 || data.retryable) && attempt < ACTION_MAX_RETRIES;
+      if (canRetry) {
+        await wait(300 * (attempt + 1));
+        continue;
+      }
+
+      throw new Error(data.error || `Error al procesar acción (${response.status})`);
+    } catch (err) {
+      lastError = err;
+      const canRetryNetwork = (err?.name === 'AbortError' || /fetch|network/i.test(String(err?.message || '')))
+        && attempt < ACTION_MAX_RETRIES;
+      if (canRetryNetwork) {
+        await wait(300 * (attempt + 1));
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw lastError || new Error('No se pudo procesar la acción.');
+};
 
 const fetchGameState = async () => {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -189,47 +342,76 @@ const fetchGameState = async () => {
   }
 };
 
+const loadAlliancePreview = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const rawFriends = Array.isArray(user?.friends) ? user.friends : [];
+
+  alliancePreview.value = rawFriends
+    .map((friend, index) => {
+      const username = typeof friend === 'string' ? friend : friend?.username || '';
+      if (!username) return null;
+
+      const status = index % 3 === 0 ? 'online' : 'offline';
+      return {
+        username,
+        status,
+        statusLabel: status === 'online' ? 'Conectado' : 'Desconectado'
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+};
+
 
 const handleAction = async (option) => {
-  if (isTyping.value) return;
-  
-  try {
+  if (isTyping.value || isSubmittingAction.value || chapterEnded.value) return;
 
-    const res = await fetch('/api/game/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: userId.value, action: option })
-    });
-    
-    const newState = await res.json();
-    if (res.ok) {
-      applySaveState(newState);
-      if (newState.narratorEnabled === false || newState.chapterEnded) {
-        await scrollToBottom();
-        return;
-      }
-      await callNarrator(option.label);
+  const requestId = generateRequestId();
+  isSubmittingAction.value = true;
+  try {
+    const payload = {
+      ...option,
+      requestId
+    };
+    const newState = await submitAction(payload);
+    applySaveState(newState);
+    if (newState.narratorEnabled === false || newState.chapterEnded) {
+      await scrollToBottom();
+      return;
     }
+    await callNarrator(option.label, requestId);
   } catch (err) {
     console.error("Error en acción:", err);
+    history.value.push({
+      type: 'narrative',
+      content: 'La acción se perdió entre las sombras del reino. Intenta de nuevo en unos segundos.'
+    });
+    await scrollToBottom();
+  } finally {
+    isSubmittingAction.value = false;
   }
 };
 
-const callNarrator = async (playerAction) => {
+const callNarrator = async (playerAction, requestId) => {
   isTyping.value = true;
+  let aiEntry = null;
   try {
-    const response = await fetch('/api/game/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerAction,
-        storyHistory: history.value.map(h => ({ 
-          role: h.type === 'narrative' ? 'model' : 'user', 
-          text: h.content 
-        })),
-        worldSeed: `Contexto: ${locationName.value}. Día ${day.value} de ${dayLimit.value}. Días restantes: ${daysRemaining.value}`
-      })
-    });
+    const response = await fetchWithTimeout(
+      '/api/game/stream',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerAction,
+          storyHistory: history.value.map(h => ({
+            role: h.type === 'narrative' ? 'model' : 'user',
+            text: h.content
+          })),
+          worldSeed: `Contexto: ${locationName.value}. Día ${day.value} de ${dayLimit.value}. Días restantes: ${daysRemaining.value}`
+        })
+      },
+      STREAM_TIMEOUT_MS
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -241,35 +423,55 @@ const callNarrator = async (playerAction) => {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    
-    let aiEntry = { type: 'narrative', content: '' };
+
+    aiEntry = { type: 'narrative', content: '' };
     history.value.push(aiEntry);
 
     let fullOutput = "";
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      
+
       const chunk = decoder.decode(value, { stream: true });
       fullOutput += chunk;
 
+      if (fullOutput.length > MAX_STREAM_CHARS) {
+        fullOutput = fullOutput.slice(0, MAX_STREAM_CHARS);
+        await reader.cancel('max_stream_size');
+        break;
+      }
 
-      aiEntry.content = fullOutput
-        .split('<DECISIONES>')[0]
-        .replace(/<NARRATIVA>|<\/NARRATIVA>/g, '')
-        .trim();
+      aiEntry.content = extractNarrativeText(fullOutput);
 
       await scrollToBottom();
     }
 
-   
+    const narrativeText = extractNarrativeText(fullOutput);
+    aiEntry.content = narrativeText || aiEntry.content;
+
     const parsedOptions = processFinalTags(fullOutput);
     if (parsedOptions.length > 0) {
       currentOptions.value = parsedOptions;
     }
+
+    await syncNarration(
+      requestId,
+      narrativeText,
+      parsedOptions.length > 0 ? parsedOptions : currentOptions.value
+    );
+
     await scrollToBottom();
   } catch (err) {
     console.error("Error en stream:", err);
+    if (aiEntry) {
+      aiEntry.content = aiEntry.content || 'El narrador calla por un instante. La expedición puede volver a intentarlo.';
+    } else {
+      history.value.push({
+        type: 'narrative',
+        content: 'El narrador calla por un instante. La expedición puede volver a intentarlo.'
+      });
+    }
+    await scrollToBottom();
   } finally {
     isTyping.value = false;
   }
@@ -335,8 +537,12 @@ const scrollToBottom = async () => {
 };
 
 const toggleMenu = () => router.push('/userpage');
+const goToFriendsHub = () => router.push('/friends');
 
-onMounted(fetchGameState);
+onMounted(() => {
+  loadAlliancePreview();
+  fetchGameState();
+});
 </script>
 
 <style scoped lang="scss">
@@ -349,7 +555,7 @@ $bg-dark: #050505;
 $border-alpha: rgba(197, 160, 89, 0.2);
 
 .game-viewport {
-  width: 100vw; height: 100vh; background: $bg-dark;
+  width: 100vw; height: 100vh; height: 100dvh; background: $bg-dark;
   color: #eee; overflow: hidden; position: relative;
   display: flex; flex-direction: column;
 }
@@ -391,11 +597,20 @@ $border-alpha: rgba(197, 160, 89, 0.2);
 }
 
 
-.main-layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 70px); position: relative; z-index: 5; }
+.main-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: calc(100vh - 70px);
+  min-height: 0;
+  position: relative;
+  z-index: 5;
+}
 
 .party-sidebar {
   background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-right: 1px solid $border-alpha;
   padding: 30px 20px; display: flex; flex-direction: column; gap: 20px;
+  overflow-y: auto;
+  min-height: 0;
   .sidebar-header { font-family: 'Cinzel'; color: #555; font-size: 0.8rem; letter-spacing: 2px; text-align: center; }
 }
 
@@ -414,13 +629,33 @@ $border-alpha: rgba(197, 160, 89, 0.2);
 }
 
 
-.game-stage { display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; width: 100%; }
+.game-stage {
+  display: flex;
+  flex-direction: column;
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 16px 12px;
+  box-sizing: border-box;
+}
 
 .log-container {
-  flex: 1; overflow-y: auto; padding: 50px 20px; display: flex; flex-direction: column; gap: 30px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 32px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
   mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+  scrollbar-width: thin;
+  scrollbar-color: rgba($gold, 0.45) rgba(0, 0, 0, 0.15);
+  &::-webkit-scrollbar { width: 10px; }
+  &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+  &::-webkit-scrollbar-thumb { background: rgba($gold, 0.45); border-radius: 12px; }
 
   .text-narrative { font-family: 'Crimson Text', serif; font-size: 1.3rem; line-height: 1.8; color: #ccc; animation: fadeIn 1.5s ease; }
   .text-combat { background: rgba($crimson, 0.1); border-left: 3px solid $crimson; padding: 20px; color: #ff6b6b; font-family: 'Cinzel'; }
@@ -433,7 +668,17 @@ $border-alpha: rgba(197, 160, 89, 0.2);
 }
 
 .action-bar {
-  padding: 40px 0; border-top: 1px solid rgba($gold, 0.1);
+  flex: 0 0 auto;
+  padding: 18px 0 10px;
+  border-top: 1px solid rgba($gold, 0.18);
+  background: linear-gradient(to top, rgba(3, 3, 3, 0.95), rgba(3, 3, 3, 0.15));
+  max-height: 38vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba($gold, 0.45) rgba(0, 0, 0, 0.15);
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+  &::-webkit-scrollbar-thumb { background: rgba($gold, 0.45); border-radius: 10px; }
   &.bar-disabled { opacity: 0.5; pointer-events: none; }
   .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
 }
@@ -469,13 +714,43 @@ $border-alpha: rgba(197, 160, 89, 0.2);
 .friends-panel {
   position: absolute; right: 0; top: 0; bottom: 0; width: 350px;
   background: rgba(5,5,5,0.98); border-left: 1px solid $gold; z-index: 100; padding: 40px;
+  overflow-y: auto;
   .panel-header { display: flex; justify-content: space-between; color: $gold; font-family: 'Cinzel'; margin-bottom: 30px; }
+  .friends-empty { color: #777; font-family: 'Cinzel'; margin-bottom: 20px; font-size: 0.85rem; }
   .friend-card { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; opacity: 0.6; &.online { opacity: 1; } }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
   .online .status-dot { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+  .btn-go-friends {
+    margin-top: 18px;
+    width: 100%;
+    border: 1px solid rgba($gold, 0.45);
+    background: rgba($gold, 0.08);
+    color: $gold;
+    font-family: 'Cinzel';
+    letter-spacing: 1px;
+    padding: 12px;
+    cursor: pointer;
+    transition: 0.25s;
+    &:hover { background: rgba($gold, 0.18); }
+  }
   .close-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem; }
 }
 
 .panel-slide-enter-active, .panel-slide-leave-active { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 .panel-slide-enter-from, .panel-slide-leave-to { transform: translateX(100%); }
+
+@media (max-width: 1100px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .party-sidebar {
+    display: none;
+  }
+
+  .log-container .text-narrative {
+    font-size: 1.13rem;
+    line-height: 1.7;
+  }
+}
 </style>

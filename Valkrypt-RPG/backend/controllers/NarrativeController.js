@@ -3,10 +3,12 @@ const { ObjectId } = require('mongodb');
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_HISTORY_ITEMS = 14;
-const MAX_OUTPUT_TOKENS = 65535;
-const DEFAULT_DAY_LIMIT = 7;
+const DEFAULT_DAY_LIMIT_FALLBACK = 7;
+const MAX_CLIENT_NARRATIVE_CHARS = 9000;
+const MAX_SYNC_OPTIONS = 6;
+const NARRATIVE_SETTINGS_CACHE_TTL_MS = 30000;
 
-const SYSTEM_PROMPT = `Eres el narrador principal de "Valkrypt", un RPG de fantasía oscura.
+const DEFAULT_SYSTEM_PROMPT = `Eres el narrador principal de "Valkrypt", un RPG de fantasía oscura.
 Reglas globales:
 - Responde siempre en español.
 - Mantén un tono inmersivo, tenso y cinematográfico.
@@ -33,6 +35,30 @@ enemigo: nombre corto o ninguno
 entorno: lugar corto
 tono: descriptor corto
 </EVENTOS>`.trim();
+
+const DEFAULT_INITIAL_OPTIONS = [
+    { id: 'explorar', label: 'Explorar la zona', type: 'narrative' },
+    { id: 'avanzar', label: 'Avanzar por el sendero', type: 'narrative' },
+    { id: 'revisar_equipo', label: 'Revisar equipo y recursos', type: 'narrative' }
+];
+
+const DEFAULT_NARRATIVE_SETTINGS = {
+    key: 'global',
+    defaultDayLimit: DEFAULT_DAY_LIMIT_FALLBACK,
+    introTemplate: 'La crónica "{campaignTitle}" comienza en {locationName}. Las decisiones del grupo moldearán el destino del reino. Nadie conoce aún la magnitud de lo que aguarda bajo la piedra.',
+    tutorialTemplate: 'TUTORIAL DE CAMPAÑA:\n1) Cada acción consume tiempo y avanza el calendario.\n2) Vigila el estado del grupo y el contexto antes de decidir.\n3) La campaña termina cuando se agotan los días del capítulo.\n4) Te quedan {dayLimit} días para resolver esta misión principal.',
+    initialOptions: DEFAULT_INITIAL_OPTIONS,
+    generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 65535
+    },
+    systemPrompt: DEFAULT_SYSTEM_PROMPT
+};
+
+let narrativeSettingsCache = {
+    fetchedAt: 0,
+    value: DEFAULT_NARRATIVE_SETTINGS
+};
 
 function normalizeHistory(storyHistory) {
     if (!Array.isArray(storyHistory)) return [];
@@ -89,6 +115,73 @@ function toPositiveInt(value, fallback) {
     return Math.floor(parsed);
 }
 
+function toBoundedNumber(value, fallback, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+function renderTemplate(template, variables) {
+    const source = String(template || '');
+    return source.replace(/\{(\w+)\}/g, (_, key) => {
+        if (variables[key] === undefined || variables[key] === null) return '';
+        return String(variables[key]);
+    });
+}
+
+function normalizeInitialOptions(rawOptions) {
+    const normalized = normalizeClientOptions(rawOptions);
+    return normalized.length > 0 ? normalized : DEFAULT_INITIAL_OPTIONS;
+}
+
+function normalizeNarrativeSettings(raw) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    return {
+        key: 'global',
+        defaultDayLimit: toPositiveInt(source.defaultDayLimit, DEFAULT_NARRATIVE_SETTINGS.defaultDayLimit),
+        introTemplate: typeof source.introTemplate === 'string' && source.introTemplate.trim()
+            ? source.introTemplate.trim()
+            : DEFAULT_NARRATIVE_SETTINGS.introTemplate,
+        tutorialTemplate: typeof source.tutorialTemplate === 'string' && source.tutorialTemplate.trim()
+            ? source.tutorialTemplate.trim()
+            : DEFAULT_NARRATIVE_SETTINGS.tutorialTemplate,
+        initialOptions: normalizeInitialOptions(source.initialOptions),
+        generationConfig: {
+            temperature: toBoundedNumber(
+                source?.generationConfig?.temperature,
+                DEFAULT_NARRATIVE_SETTINGS.generationConfig.temperature,
+                0,
+                2
+            ),
+            maxOutputTokens: toPositiveInt(
+                source?.generationConfig?.maxOutputTokens,
+                DEFAULT_NARRATIVE_SETTINGS.generationConfig.maxOutputTokens
+            )
+        },
+        systemPrompt: typeof source.systemPrompt === 'string' && source.systemPrompt.trim()
+            ? source.systemPrompt.trim()
+            : DEFAULT_NARRATIVE_SETTINGS.systemPrompt
+    };
+}
+
+async function getNarrativeSettings(db, { force = false } = {}) {
+    const now = Date.now();
+    if (!force && narrativeSettingsCache.value && (now - narrativeSettingsCache.fetchedAt) < NARRATIVE_SETTINGS_CACHE_TTL_MS) {
+        return narrativeSettingsCache.value;
+    }
+
+    const raw = await db.collection('narrative_settings').findOne({
+        key: 'global',
+        active: { $ne: false }
+    });
+    const normalized = normalizeNarrativeSettings(raw);
+    narrativeSettingsCache = {
+        fetchedAt: now,
+        value: normalized
+    };
+    return normalized;
+}
+
 function buildCampaignIdQuery(campaignId) {
     const normalizedId = String(campaignId || '').trim();
     const query = [
@@ -113,19 +206,24 @@ async function findCampaignByAnyId(db, campaignId) {
     });
 }
 
-function buildIntroText(campaignTitle, locationName) {
-    return `La crónica "${campaignTitle}" comienza en ${locationName}. Las decisiones del grupo moldearán el destino del reino. Nadie conoce aún la magnitud de lo que aguarda bajo la piedra.`;
+function buildIntroText(campaignTitle, locationName, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
+    return renderTemplate(narrativeSettings.introTemplate, {
+        campaignTitle,
+        locationName
+    });
 }
 
-function buildTutorialText(dayLimit) {
-    return `TUTORIAL DE CAMPAÑA:\n1) Cada acción consume tiempo y avanza el calendario.\n2) Vigila el estado del grupo y el contexto antes de decidir.\n3) La campaña termina cuando se agotan los días del capítulo.\n4) Te quedan ${dayLimit} días para resolver esta misión principal.`;
+function buildTutorialText(dayLimit, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
+    return renderTemplate(narrativeSettings.tutorialTemplate, {
+        dayLimit
+    });
 }
 
-function normalizeCampaign(rawCampaign) {
+function normalizeCampaign(rawCampaign, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
     const id = rawCampaign?.id || rawCampaign?.slug || (rawCampaign?._id ? String(rawCampaign._id) : '');
     const title = rawCampaign?.title || 'Campaña sin título';
     const location = rawCampaign?.location || 'Ubicación desconocida';
-    const dayLimit = toPositiveInt(rawCampaign?.dayLimit, DEFAULT_DAY_LIMIT);
+    const dayLimit = toPositiveInt(rawCampaign?.dayLimit, narrativeSettings.defaultDayLimit);
 
     return {
         id,
@@ -134,14 +232,14 @@ function normalizeCampaign(rawCampaign) {
         location,
         img: rawCampaign?.img || '',
         dayLimit,
-        introText: rawCampaign?.introText || buildIntroText(title, location),
-        tutorialText: rawCampaign?.tutorialText || buildTutorialText(dayLimit),
+        introText: rawCampaign?.introText || buildIntroText(title, location, narrativeSettings),
+        tutorialText: rawCampaign?.tutorialText || buildTutorialText(dayLimit, narrativeSettings),
         heroes: Array.isArray(rawCampaign?.heroes) ? rawCampaign.heroes.map(normalizeHero) : []
     };
 }
 
 function enrichSaveState(rawSave) {
-    const dayLimit = toPositiveInt(rawSave?.dayLimit, DEFAULT_DAY_LIMIT);
+    const dayLimit = toPositiveInt(rawSave?.dayLimit, DEFAULT_DAY_LIMIT_FALLBACK);
     const saveDay = toPositiveInt(rawSave?.day, 1);
     const day = Math.max(1, Math.min(saveDay, dayLimit));
     const chapterStatus = rawSave?.chapterStatus === 'completed' ? 'completed' : 'active';
@@ -175,16 +273,71 @@ function normalizeSaveSummary(rawSave) {
     };
 }
 
+function buildActionResponse(save, extra = {}) {
+    const state = enrichSaveState(save);
+    return {
+        ...state,
+        narratorEnabled: !state.chapterEnded,
+        chapterEnded: state.chapterEnded,
+        ...extra
+    };
+}
+
+function normalizeRequestId(value) {
+    const id = String(value || '').trim();
+    return id ? id.slice(0, 96) : '';
+}
+
+function buildOptimisticTurnFilter(userObjectId, currentSave, currentTurn) {
+    const base = { userId: userObjectId };
+    if (currentSave?.turn === undefined || currentSave?.turn === null) {
+        return {
+            ...base,
+            $or: [{ turn: { $exists: false } }, { turn: null }]
+        };
+    }
+    return {
+        ...base,
+        turn: currentTurn
+    };
+}
+
+function normalizeClientOptions(options) {
+    if (!Array.isArray(options)) return [];
+
+    const toId = (source, i) => {
+        const normalized = String(source || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9_]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 48);
+        return normalized || `opcion_${Date.now()}_${i + 1}`;
+    };
+
+    return options
+        .map((rawOption, i) => {
+            const label = String(rawOption?.label || '').trim();
+            if (!label) return null;
+
+            const id = toId(rawOption?.id || label, i);
+            const type = rawOption?.type === 'combat' ? 'combat' : 'narrative';
+            return { id, label, type };
+        })
+        .filter(Boolean)
+        .slice(0, MAX_SYNC_OPTIONS);
+}
+
 class NarrativeController {
     static async getCampaigns(req, res) {
         try {
             const db = getDB();
+            const narrativeSettings = await getNarrativeSettings(db);
             const campaigns = await db
                 .collection('campaigns')
                 .find({ active: { $ne: false } })
                 .toArray();
 
-            return res.json(campaigns.map(normalizeCampaign));
+            return res.json(campaigns.map((campaign) => normalizeCampaign(campaign, narrativeSettings)));
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -193,6 +346,7 @@ class NarrativeController {
     static async getCampaignById(req, res) {
         try {
             const db = getDB();
+            const narrativeSettings = await getNarrativeSettings(db);
             const { campaignId } = req.params;
             if (!campaignId) {
                 return res.status(400).json({ error: 'campaignId requerido' });
@@ -203,7 +357,7 @@ class NarrativeController {
                 return res.status(404).json({ error: 'Campaña no encontrada' });
             }
 
-            return res.json(normalizeCampaign(campaign));
+            return res.json(normalizeCampaign(campaign, narrativeSettings));
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -242,9 +396,37 @@ class NarrativeController {
         }
     }
 
+    static async deleteSave(req, res) {
+        try {
+            const db = getDB();
+            const { userId, saveId } = req.params;
+
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID de usuario no válido" });
+            }
+            if (!saveId || !ObjectId.isValid(saveId)) {
+                return res.status(400).json({ error: "ID de partida no válido" });
+            }
+
+            const deleteResult = await db.collection('saves').deleteOne({
+                _id: new ObjectId(saveId),
+                userId: new ObjectId(userId)
+            });
+
+            if (deleteResult.deletedCount === 0) {
+                return res.status(404).json({ error: "Partida no encontrada" });
+            }
+
+            return res.json({ success: true });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
     static async processAction(req, res) {
         try {
             const db = getDB();
+            const narrativeSettings = await getNarrativeSettings(db);
             const { userId, action } = req.body;
             if (!userId || !ObjectId.isValid(userId)) {
                 return res.status(400).json({ error: "ID de usuario no válido" });
@@ -256,17 +438,17 @@ class NarrativeController {
                 const sessionData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
                 const campaignRecord = await findCampaignByAnyId(db, sessionData.campaignId);
                 const campaignData = campaignRecord
-                    ? normalizeCampaign(campaignRecord)
+                    ? normalizeCampaign(campaignRecord, narrativeSettings)
                     : normalizeCampaign({
                         id: sessionData.campaignId,
                         title: sessionData.campaignTitle,
                         location: sessionData.location,
                         img: sessionData.currentBackground || sessionData.img,
                         dayLimit: sessionData.dayLimit
-                    });
-                const dayLimit = toPositiveInt(campaignData.dayLimit, DEFAULT_DAY_LIMIT);
-                const introText = campaignData.introText || buildIntroText(campaignData.title, campaignData.location);
-                const tutorialText = campaignData.tutorialText || buildTutorialText(dayLimit);
+                    }, narrativeSettings);
+                const dayLimit = toPositiveInt(campaignData.dayLimit, narrativeSettings.defaultDayLimit);
+                const introText = campaignData.introText || buildIntroText(campaignData.title, campaignData.location, narrativeSettings);
+                const tutorialText = campaignData.tutorialText || buildTutorialText(dayLimit, narrativeSettings);
                 const newSave = {
                     userId: userObjectId,
                     campaignId: campaignData.id || sessionData.campaignId || '',
@@ -279,15 +461,13 @@ class NarrativeController {
                         { type: 'narrative', content: tutorialText },
                         { type: 'narrative', content: `Día 1 de ${dayLimit}. El capítulo comienza ahora.` }
                     ],
-                    currentOptions: [
-                        { id: 'explorar', label: 'Explorar la zona', type: 'narrative' },
-                        { id: 'avanzar', label: 'Avanzar por el sendero', type: 'narrative' },
-                        { id: 'revisar_equipo', label: 'Revisar equipo y recursos', type: 'narrative' }
-                    ],
+                    currentOptions: normalizeInitialOptions(narrativeSettings.initialOptions),
                     day: 1,
                     dayLimit,
                     chapterStatus: 'active',
                     turn: 1,
+                    lastProcessedActionKey: null,
+                    lastNarrationSyncKey: null,
                     updatedAt: new Date()
                 };
                 await db.collection('saves').updateOne({ userId: userObjectId }, { $set: newSave }, { upsert: true });
@@ -301,12 +481,76 @@ class NarrativeController {
             const currentSave = await db.collection('saves').findOne({ userId: userObjectId });
             if (!currentSave) return res.status(404).json({ error: "Save not found" });
             const saveState = enrichSaveState(currentSave);
+
+            if (safeAction.type === 'narration_sync') {
+                const syncData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
+                const syncKey = normalizeRequestId(syncData.requestId || safeAction.requestId || safeAction.actionId);
+                if (!syncKey) {
+                    return res.status(400).json({ error: "requestId requerido para narration_sync" });
+                }
+
+                if (currentSave.lastNarrationSyncKey === syncKey) {
+                    return res.json(buildActionResponse(currentSave, { duplicate: true }));
+                }
+
+                const narrativeText = typeof syncData.narrative === 'string'
+                    ? syncData.narrative.trim().slice(0, MAX_CLIENT_NARRATIVE_CHARS)
+                    : '';
+                const syncedOptions = normalizeClientOptions(syncData.options);
+                const nextHistory = Array.isArray(currentSave.history) ? [...currentSave.history] : [];
+
+                if (narrativeText) {
+                    nextHistory.push({ type: 'narrative', content: narrativeText });
+                }
+
+                const currentTurn = toPositiveInt(currentSave.turn, 1);
+                const updatePayload = {
+                    history: nextHistory,
+                    currentOptions: syncedOptions.length > 0
+                        ? syncedOptions
+                        : (Array.isArray(currentSave.currentOptions) ? currentSave.currentOptions : []),
+                    lastNarrationSyncKey: syncKey,
+                    turn: currentTurn + 1,
+                    updatedAt: new Date()
+                };
+
+                const updateFilter = {
+                    ...buildOptimisticTurnFilter(userObjectId, currentSave, currentTurn),
+                    lastNarrationSyncKey: { $ne: syncKey }
+                };
+
+                const updateResult = await db.collection('saves').updateOne(updateFilter, { $set: updatePayload });
+                if (updateResult.modifiedCount === 0) {
+                    const latestSave = await db.collection('saves').findOne({ userId: userObjectId });
+                    if (!latestSave) return res.status(404).json({ error: "Save not found" });
+                    if (latestSave.lastNarrationSyncKey === syncKey) {
+                        return res.json(buildActionResponse(latestSave, { duplicate: true }));
+                    }
+                    return res.status(409).json({
+                        error: "Estado actualizado por otra acción. Reintenta sincronizar narración.",
+                        retryable: true
+                    });
+                }
+
+                const updatedSave = await db.collection('saves').findOne({ userId: userObjectId });
+                return res.json(buildActionResponse(updatedSave));
+            }
+
             if (saveState.chapterEnded) {
                 return res.json({
                     ...saveState,
                     narratorEnabled: false,
                     chapterEnded: true
                 });
+            }
+
+            const requestId = normalizeRequestId(safeAction.requestId || safeAction.actionId || safeAction.meta?.requestId);
+            if (!requestId) {
+                return res.status(400).json({ error: "requestId requerido para procesar acción" });
+            }
+
+            if (currentSave.lastProcessedActionKey === requestId) {
+                return res.json(buildActionResponse(currentSave, { duplicate: true }));
             }
 
             const actionType = safeAction.type || 'action';
@@ -326,22 +570,39 @@ class NarrativeController {
                 });
             }
 
+            const currentTurn = toPositiveInt(currentSave.turn, 1);
             const updatePayload = {
                 history,
                 day,
                 dayLimit: saveState.dayLimit,
                 chapterStatus,
-                turn: toPositiveInt(currentSave.turn, 1) + 1,
+                turn: currentTurn + 1,
+                lastProcessedActionKey: requestId,
                 updatedAt: new Date()
             };
             if (chapterEnded) {
                 updatePayload.currentOptions = [];
             }
 
-            await db.collection('saves').updateOne({ userId: userObjectId }, { $set: updatePayload });
+            const updateFilter = {
+                ...buildOptimisticTurnFilter(userObjectId, currentSave, currentTurn),
+                lastProcessedActionKey: { $ne: requestId }
+            };
+            const updateResult = await db.collection('saves').updateOne(updateFilter, { $set: updatePayload });
+            if (updateResult.modifiedCount === 0) {
+                const latestSave = await db.collection('saves').findOne({ userId: userObjectId });
+                if (!latestSave) return res.status(404).json({ error: "Save not found" });
+                if (latestSave.lastProcessedActionKey === requestId) {
+                    return res.json(buildActionResponse(latestSave, { duplicate: true }));
+                }
+                return res.status(409).json({
+                    error: "Estado de partida cambiado por otra acción. Reintenta.",
+                    retryable: true
+                });
+            }
 
             const updated = await db.collection('saves').findOne({ userId: userObjectId });
-            res.json({
+            return res.json({
                 ...enrichSaveState(updated),
                 narratorEnabled: !chapterEnded,
                 chapterEnded
@@ -352,7 +613,7 @@ class NarrativeController {
     }
 
     static async stream(req, res) {
-        const { playerAction, storyHistory, worldSeed, gameState } = req.body || {};
+        const { playerAction, storyHistory, worldSeed } = req.body || {};
         const apiKey = process.env.GEMINI_API_KEY;
         const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
@@ -363,13 +624,22 @@ class NarrativeController {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         
         try {
+            if (!apiKey) {
+                return res.status(500).json({ error: 'GEMINI_API_KEY no configurada' });
+            }
+
+            const db = getDB();
+            const narrativeSettings = await getNarrativeSettings(db);
             const response = await fetch(`${GEMINI_API_BASE_URL}/models/${model}:streamGenerateContent?alt=sse`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
                 body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                    systemInstruction: { parts: [{ text: narrativeSettings.systemPrompt }] },
                     contents: history,
-                    generationConfig: { temperature: 0.9, maxOutputTokens: MAX_OUTPUT_TOKENS }
+                    generationConfig: {
+                        temperature: narrativeSettings.generationConfig.temperature,
+                        maxOutputTokens: narrativeSettings.generationConfig.maxOutputTokens
+                    }
                 })
             });
 

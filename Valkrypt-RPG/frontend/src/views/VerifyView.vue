@@ -33,6 +33,7 @@ const router = useRouter();
 
 const handleVerify = async () => {
   const username = localStorage.getItem('temp_user');
+  const normalizedCode = code.value.replace(/\D/g, '').slice(0, 6);
 
   if (!username) {
     alert("No se encontró el usuario. Por favor, regístrate de nuevo.");
@@ -40,13 +41,18 @@ const handleVerify = async () => {
     return;
   }
 
+  if (normalizedCode.length !== 6) {
+    alert("El código OTP debe tener 6 dígitos.");
+    return;
+  }
+
   try {
-    const response = await fetch('/api/verify', {
+    const response = await fetch('/api/auth/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         username: username, 
-        code: code.value
+        code: normalizedCode
       })
     });
 

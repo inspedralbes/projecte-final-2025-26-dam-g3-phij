@@ -36,7 +36,7 @@
       </header>
 
       <section class="adventures-grid">
-        <div class="adv-card create" @click="isSelectingCampaign = true">
+        <div class="adv-card create" @click="openCampaignSelector">
           <div class="card-inner">
             <span class="icon">+</span>
             <h3>INICIAR NUEVA LEYENDA</h3>
@@ -74,7 +74,12 @@
             <p class="last-event">{{ save.lastEvent }}</p>
             <div class="card-meta">
               <span>{{ save.date }}</span>
-              <button class="btn-play" @click="resumeGame(save.id)">CONTINUAR</button>
+              <div class="card-actions">
+                <button class="btn-play" @click="resumeGame(save.id)">CONTINUAR</button>
+                <button class="btn-delete" :disabled="saveDeleteLoading === save.id" @click="deleteSave(save.id)">
+                  {{ saveDeleteLoading === save.id ? 'ELIMINANDO...' : 'ELIMINAR' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -126,6 +131,7 @@ const savedGames = ref([]);
 const SAVE_FALLBACK_IMG = 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=500';
 
 const availableCampaigns = ref([]);
+const saveDeleteLoading = ref('');
 
 const loadCampaigns = async () => {
   campaignsLoading.value = true;
@@ -188,13 +194,15 @@ onMounted(async () => {
   const user = JSON.parse(localStorage.getItem('user'));
   if (user && user.username) {
     const userId = user.id || user._id;
-    userInitial.value = user.username.charAt(0).toUpperCase();
-    usernameLabel.value = user.username.toUpperCase();
+    const displayName = String(user?.profile?.displayName || user.username || '').trim();
+    const label = displayName || user.username;
+    userInitial.value = label.charAt(0).toUpperCase();
+    usernameLabel.value = label.toUpperCase();
     if (!userId) {
       router.push('/login');
       return;
     }
-    await Promise.all([loadCampaigns(), loadSavedGames(userId)]);
+    await loadSavedGames(userId);
   } else {
     router.push('/login');
   }
@@ -206,12 +214,46 @@ const handleLogout = () => {
   router.push('/login');
 };
 
+const openCampaignSelector = async () => {
+  isSelectingCampaign.value = true;
+  if (availableCampaigns.value.length === 0 && !campaignsLoading.value) {
+    await loadCampaigns();
+  }
+};
+
 const startNewGame = (campId) => {
   router.push({ path: '/select', query: { campaign: campId } });
 };
 
 const resumeGame = (id) => {
   router.push('/game');
+};
+
+const deleteSave = async (saveId) => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user.id || user._id;
+  if (!userId || !saveId || saveDeleteLoading.value) return;
+
+  const confirmed = window.confirm('¿Seguro que quieres eliminar esta historia? Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+
+  saveDeleteLoading.value = saveId;
+  try {
+    const response = await fetch(`/api/game/saves/${encodeURIComponent(userId)}/${encodeURIComponent(saveId)}`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Error ${response.status}`);
+    }
+
+    savedGames.value = savedGames.value.filter((save) => save.id !== saveId);
+  } catch (error) {
+    console.error('No se pudo eliminar la partida:', error);
+    window.alert('No se pudo eliminar la historia guardada.');
+  } finally {
+    saveDeleteLoading.value = '';
+  }
 };
 </script>
 
@@ -368,14 +410,35 @@ $card-bg: rgba(20, 20, 20, 0.9);
 }
 
 .card-body {
+  display: flex;
+  flex-direction: column;
   padding: 1.8rem;
   h3 { color: $gold; margin-bottom: 12px; font-size: 1.2rem; }
-  .last-event { font-size: 0.85rem; color: #999; font-style: italic; min-height: 45px; }
+  .last-event {
+    font-size: 0.85rem;
+    color: #999;
+    font-style: italic;
+    min-height: 45px;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .card-meta {
-  display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 1.25rem;
   span { font-size: 0.75rem; color: #555; }
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .saved-state {
@@ -391,6 +454,18 @@ $card-bg: rgba(20, 20, 20, 0.9);
   background: $gold; color: black; border: none; padding: 10px 22px;
   font-weight: bold; cursor: pointer; transition: 0.3s;
   &:hover { background: #d4b47a; }
+}
+
+.btn-delete {
+  background: transparent;
+  color: #d79292;
+  border: 1px solid rgba(255, 130, 130, 0.35);
+  padding: 10px 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+  &:hover { background: rgba(255, 130, 130, 0.1); }
+  &:disabled { opacity: 0.5; cursor: wait; }
 }
 
 .campaign-selector-overlay {
