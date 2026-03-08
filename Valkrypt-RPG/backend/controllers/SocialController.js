@@ -1,6 +1,12 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../config/db');
 const Session = require('../models/Session');
+const {
+    PROFILE_LIMITS,
+    sanitizeText,
+    sanitizeProfileForResponse,
+    buildAdvancedProfileData
+} = require('../utils/profileStats');
 
 let chatIndexesEnsured = false;
 const PRESENCE_ONLINE_WINDOW_MS = 90 * 1000;
@@ -166,6 +172,94 @@ class SocialController {
             });
         } catch (error) {
             console.error('Error social state:', error);
+            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+        }
+    }
+
+    static async getPublicProfile(req, res) {
+        try {
+            const db = getDB();
+            const targetUsername = normalizeUsername(req.params?.username);
+            const viewerUserId = String(req.query?.viewerUserId || '').trim();
+
+            if (!targetUsername) {
+                return res.status(400).json({ success: false, error: 'username requerido' });
+            }
+            if (!viewerUserId || !ObjectId.isValid(viewerUserId)) {
+                return res.status(400).json({ success: false, error: 'viewerUserId no valido' });
+            }
+
+            const viewer = await db.collection('users').findOne({ _id: new ObjectId(viewerUserId) });
+            if (!viewer) {
+                return res.status(404).json({ success: false, error: 'Usuario solicitante no encontrado' });
+            }
+
+            const targetUser = await findUserByUsernameCI(db, targetUsername);
+            if (!targetUser) {
+                return res.status(404).json({ success: false, error: 'Usuario objetivo no encontrado' });
+            }
+
+            const viewerUsername = String(viewer.username || '').toLowerCase();
+            const targetUserNameLower = String(targetUser.username || '').toLowerCase();
+            const isSelf = String(viewer._id) === String(targetUser._id);
+            const viewerFriends = toUsernameSet(viewer.friends);
+            const targetFriends = toUsernameSet(targetUser.friends);
+            const isFriend = viewerFriends.has(targetUserNameLower) || targetFriends.has(viewerUsername);
+
+            if (!isSelf && !isFriend) {
+                return res.status(403).json({ success: false, error: 'Solo puedes ver perfiles de tus aliados' });
+            }
+
+            const targetIdString = String(targetUser._id);
+            const candidateIds = [targetIdString];
+            if (ObjectId.isValid(targetIdString)) {
+                candidateIds.push(new ObjectId(targetIdString));
+            }
+            const cutoff = new Date(Date.now() - PRESENCE_ONLINE_WINDOW_MS);
+            const activeSession = await db.collection('sessions').findOne({
+                active: true,
+                userId: { $in: candidateIds },
+                $or: [
+                    { lastSeenAt: { $gte: cutoff } },
+                    { loginAt: { $gte: cutoff }, lastSeenAt: { $exists: false } }
+                ]
+            }, { sort: { lastSeenAt: -1, loginAt: -1 } });
+            const isOnline = Boolean(activeSession);
+
+            const advanced = await buildAdvancedProfileData(db, targetUser);
+            const stats = advanced?.stats && typeof advanced.stats === 'object' ? advanced.stats : {};
+
+            return res.json({
+                success: true,
+                profile: {
+                    id: String(targetUser._id),
+                    username: targetUser.username,
+                    character: sanitizeText(targetUser?.character, PROFILE_LIMITS.character, { allowEmpty: true }) || null,
+                    profile: sanitizeProfileForResponse(targetUser),
+                    stats: {
+                        savedCampaigns: Number(stats.savedCampaigns || 0),
+                        completedChapters: Number(stats.completedChapters || 0),
+                        roomsCompleted: Number(stats.roomsCompleted || 0),
+                        coopTurnsTaken: Number(stats.coopTurnsTaken || 0),
+                        totalTurns: Number(stats.totalTurns || 0),
+                        friends: Number(stats.friends || 0),
+                        profileScore: Number(stats.profileScore || 0),
+                        rank: stats.rank || { id: 'aprendiz', label: 'Aprendiz de Aventura' }
+                    },
+                    achievements: Array.isArray(advanced?.achievements) ? advanced.achievements : [],
+                    presence: {
+                        status: isOnline ? 'online' : 'offline',
+                        statusLabel: isOnline ? 'Conectado' : 'Desconectado'
+                    },
+                    relation: {
+                        isSelf,
+                        isFriend,
+                        canChat: isSelf || isFriend
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error public profile:', error);
             return res.status(500).json({ success: false, error: 'Error interno del servidor' });
         }
     }

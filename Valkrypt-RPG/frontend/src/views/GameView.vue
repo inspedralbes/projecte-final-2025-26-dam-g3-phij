@@ -4,7 +4,6 @@
     <div class="fx-layer vignette"></div>
     <div class="fx-layer grain"></div>
     <div class="fx-layer scanlines"></div>
-
     <nav class="hud-top">
       <div class="nav-left">
         <button class="btn-hud main-menu-btn" @click="toggleMenu">
@@ -12,7 +11,6 @@
           <span class="btn-label">MENÚ</span>
         </button>
       </div>
-
       <div class="nav-center">
         <div class="location-display">
           <div class="campaign-name">{{ campaignTitle }}</div>
@@ -22,11 +20,11 @@
           </div>
           <div class="day-track">
             <span>DÍA {{ day }} / {{ dayLimit }}</span>
-            <small>QUEDAN {{ daysRemaining }} DÍAS</small>
+            <small class="slot-track">{{ currentSlotLabel }} · {{ actionsRemainingToday }} ACCIONES RESTANTES HOY</small>
+            <small class="days-track">QUEDAN {{ daysRemaining }} DÍAS</small>
           </div>
         </div>
       </div>
-
       <div class="nav-right">
         <button class="btn-hud alliance-btn" @click="showFriends = !showFriends">
           <i class="fas fa-shield-alt"></i>
@@ -35,7 +33,6 @@
         </button>
       </div>
     </nav>
-
     <div class="main-layout">
       <aside class="party-sidebar">
         <div class="sidebar-header">COMPAÑEROS</div>
@@ -55,7 +52,6 @@
           </div>
         </div>
       </aside>
-
       <main class="game-stage">
         <div class="log-container" ref="logContainer">
           <div v-for="(entry, index) in history" :key="index" class="log-entry-wrapper">
@@ -72,7 +68,6 @@
               </div>
             </div>
           </div>
-
           <div v-if="isTyping" class="ai-typing">
             <div class="typing-loader">
               <span></span><span></span><span></span>
@@ -80,7 +75,13 @@
             <span class="typing-text">EL NARRADOR ESTÁ FORJANDO LA HISTORIA...</span>
           </div>
         </div>
-
+        <TacticalCombatPanel
+          v-if="combatEncounter"
+          :encounter="combatEncounter"
+          :party="party"
+          @sync-party="handleCombatPartySync"
+          @end="handleCombatEnd"
+        />
         <footer class="action-bar" :class="{ 'bar-disabled': (isTyping || isSubmittingAction) && !chapterEnded }">
           <div v-if="chapterEnded" class="chapter-end">
             <h3>FIN DEL CAPÍTULO</h3>
@@ -89,6 +90,9 @@
               VOLVER AL BASTIÓN
             </button>
           </div>
+          <div v-else-if="combatEncounter" class="combat-waiting">
+            <p>Combate táctico activo. Resuelve el turno en el panel de combate.</p>
+          </div>
           <div v-else class="action-grid">
             <button 
               v-for="option in currentOptions" 
@@ -96,7 +100,7 @@
               @click="handleAction(option)" 
               class="btn-action-fantasy"
               :class="{ 'btn-danger': option.type === 'combat' }"
-              :disabled="isTyping || isSubmittingAction"
+              :disabled="isTyping || isSubmittingAction || Boolean(combatEncounter)"
             >
               <span class="btn-inner">{{ option.label }}</span>
             </button>
@@ -106,8 +110,14 @@
           </div>
         </footer>
       </main>
+      <PartyInventoryPanel
+        class="inventory-dock"
+        :party="party"
+        :combat-active="Boolean(combatEncounter)"
+        @update-party="handlePartyUpdate"
+        @log="handleInventoryLog"
+      />
     </div>
-
     <transition name="panel-slide">
       <div v-if="showFriends" class="friends-panel">
         <div class="panel-header">
@@ -136,23 +146,24 @@
     </transition>
   </div>
 </template>
-
 <script setup>
 import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-
+import TacticalCombatPanel from '../components/TacticalCombatPanel.vue';
+import PartyInventoryPanel from '../components/PartyInventoryPanel.vue';
+import { extractNarrativeText, parseEventTags, buildFallbackOptions, processFinalTags } from '../utils/gameNarrative';
+import { normalizePartyState } from '../utils/partySystem';
 const ACTION_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_MS = 90000;
 const ACTION_MAX_RETRIES = 2;
 const NARRATION_SYNC_MAX_RETRIES = 2;
-const MAX_STREAM_CHARS = 12000;
-
+const COMBAT_STREAK_LIMIT = 2;
+const DAY_SLOT_LABELS = ['MAÑANA', 'TARDE', 'NOCHE'];
 const router = useRouter();
 const logContainer = ref(null);
 const isTyping = ref(false);
 const isSubmittingAction = ref(false);
 const showFriends = ref(false);
-
 const userId = ref(null);
 const campaignTitle = ref("LA SOMBRA DE PIEDRAPROFUNDA");
 const locationName = ref("Cargando...");
@@ -161,18 +172,21 @@ const party = ref([]);
 const history = ref([]);
 const currentOptions = ref([]);
 const day = ref(1);
-const dayLimit = ref(7);
-const daysRemaining = ref(6);
+const dayLimit = ref(30);
+const daysRemaining = ref(29);
+const slotIndex = ref(0);
+const currentSlotLabel = ref(DAY_SLOT_LABELS[0]);
+const actionsRemainingToday = ref(2);
 const chapterEnded = ref(false);
 const alliancePreview = ref([]);
-
+const actionsSinceLastCombat = ref(0);
+const combatEncounter = ref(null);
+let partySyncTimer = null;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const generateRequestId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `act_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 };
-
 const fetchWithTimeout = async (url, options = {}, timeoutMs = ACTION_TIMEOUT_MS) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -182,7 +196,6 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = ACTION_TIMEOUT_MS
     clearTimeout(timeoutId);
   }
 };
-
 const parseJsonResponse = async (response) => {
   const rawBody = await response.text();
   if (!rawBody) return {};
@@ -192,17 +205,41 @@ const parseJsonResponse = async (response) => {
     return { error: rawBody };
   }
 };
-
+const computeActionsSinceLastCombat = (entries) => {
+  if (!Array.isArray(entries) || entries.length === 0) return 0;
+  let streak = 0;
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i];
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.type === 'combat') return streak;
+    if (entry.type === 'action') streak += 1;
+  }
+  return streak;
+};
+const normalizeHistoryEntry = (entry) => {
+  if (!entry || typeof entry !== 'object') return entry;
+  const cleanContent = typeof entry.content === 'string'
+    ? entry.content
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+    : entry.content;
+  return { ...entry, content: cleanContent };
+};
 const applySaveState = (save) => {
   if (!save || typeof save !== 'object') return;
   campaignTitle.value = save.campaignTitle || campaignTitle.value;
   locationName.value = save.locationName || locationName.value;
   currentBackground.value = save.currentBackground || currentBackground.value;
-  party.value = Array.isArray(save.party) ? save.party : party.value;
-  history.value = Array.isArray(save.history) ? save.history : history.value;
+  party.value = Array.isArray(save.party) ? normalizePartyState(save.party) : party.value;
+  history.value = Array.isArray(save.history) ? save.history.map(normalizeHistoryEntry) : history.value;
   currentOptions.value = Array.isArray(save.currentOptions) ? save.currentOptions : currentOptions.value;
   day.value = Number.isFinite(Number(save.day)) ? Number(save.day) : day.value;
   dayLimit.value = Number.isFinite(Number(save.dayLimit)) ? Number(save.dayLimit) : dayLimit.value;
+  slotIndex.value = Number.isFinite(Number(save.slotIndex)) ? Number(save.slotIndex) : slotIndex.value;
+  currentSlotLabel.value = String(save.slotLabel || DAY_SLOT_LABELS[slotIndex.value] || DAY_SLOT_LABELS[0]).toUpperCase();
+  actionsRemainingToday.value = Number.isFinite(Number(save.actionsRemainingToday))
+    ? Number(save.actionsRemainingToday)
+    : Math.max(0, DAY_SLOT_LABELS.length - (slotIndex.value + 1));
   daysRemaining.value = Number.isFinite(Number(save.daysRemaining))
     ? Number(save.daysRemaining)
     : Math.max(0, dayLimit.value - day.value);
@@ -211,22 +248,10 @@ const applySaveState = (save) => {
     save.chapterStatus === 'completed' ||
     (day.value >= dayLimit.value && currentOptions.value.length === 0)
   );
+  actionsSinceLastCombat.value = computeActionsSinceLastCombat(history.value);
 };
-
-const extractNarrativeText = (fullOutput) => {
-  if (!fullOutput || typeof fullOutput !== 'string') return '';
-  const blockMatch = fullOutput.match(/<NARRATIVA>([\s\S]*?)<\/NARRATIVA>/i);
-  if (blockMatch?.[1]) return blockMatch[1].trim();
-
-  return fullOutput
-    .split('<DECISIONES>')[0]
-    .replace(/<\/?NARRATIVA>/gi, '')
-    .trim();
-};
-
 const syncNarration = async (requestId, narrativeText, options) => {
   if (!userId.value || !requestId) return;
-
   const payload = {
     userId: userId.value,
     action: {
@@ -235,11 +260,11 @@ const syncNarration = async (requestId, narrativeText, options) => {
       data: {
         requestId,
         narrative: narrativeText || '',
-        options: Array.isArray(options) ? options : []
+        options: Array.isArray(options) ? options : [],
+        party: Array.isArray(party.value) ? party.value : []
       }
     }
   };
-
   let lastError = null;
   for (let attempt = 0; attempt <= NARRATION_SYNC_MAX_RETRIES; attempt += 1) {
     try {
@@ -252,13 +277,11 @@ const syncNarration = async (requestId, narrativeText, options) => {
         },
         ACTION_TIMEOUT_MS
       );
-
       const data = await parseJsonResponse(response);
       if (response.ok) {
         applySaveState(data);
         return;
       }
-
       const canRetry = (response.status === 409 || data.retryable) && attempt < NARRATION_SYNC_MAX_RETRIES;
       if (canRetry) {
         await wait(300 * (attempt + 1));
@@ -276,15 +299,12 @@ const syncNarration = async (requestId, narrativeText, options) => {
       break;
     }
   }
-
   if (lastError) {
     console.error('No se pudo sincronizar narración en DB:', lastError);
   }
 };
-
 const submitAction = async (optionPayload) => {
   let lastError = null;
-
   for (let attempt = 0; attempt <= ACTION_MAX_RETRIES; attempt += 1) {
     try {
       const response = await fetchWithTimeout(
@@ -299,16 +319,13 @@ const submitAction = async (optionPayload) => {
         },
         ACTION_TIMEOUT_MS
       );
-
       const data = await parseJsonResponse(response);
       if (response.ok) return data;
-
       const canRetry = (response.status === 409 || data.retryable) && attempt < ACTION_MAX_RETRIES;
       if (canRetry) {
         await wait(300 * (attempt + 1));
         continue;
       }
-
       throw new Error(data.error || `Error al procesar acción (${response.status})`);
     } catch (err) {
       lastError = err;
@@ -321,15 +338,12 @@ const submitAction = async (optionPayload) => {
       break;
     }
   }
-
   throw lastError || new Error('No se pudo procesar la acción.');
 };
-
 const fetchGameState = async () => {
   const user = JSON.parse(localStorage.getItem('user'));
   if (!user) return router.push('/login');
   userId.value = user.id || user._id;
-
   try {
     const response = await fetch(`/api/game/load/${userId.value}`);
     const data = await response.json();
@@ -341,16 +355,13 @@ const fetchGameState = async () => {
     console.error("Error crítico de carga:", err);
   }
 };
-
 const loadAlliancePreview = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const rawFriends = Array.isArray(user?.friends) ? user.friends : [];
-
   alliancePreview.value = rawFriends
     .map((friend, index) => {
       const username = typeof friend === 'string' ? friend : friend?.username || '';
       if (!username) return null;
-
       const status = index % 3 === 0 ? 'online' : 'offline';
       return {
         username,
@@ -361,11 +372,84 @@ const loadAlliancePreview = () => {
     .filter(Boolean)
     .slice(0, 8);
 };
-
-
+const syncPartySnapshot = async () => {
+  if (!userId.value) return;
+  const requestId = generateRequestId();
+  try {
+    const response = await fetchWithTimeout(
+      '/api/game/action',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId.value,
+          action: {
+            type: 'party_sync',
+            requestId,
+            data: {
+              requestId,
+              party: Array.isArray(party.value) ? party.value : []
+            }
+          }
+        })
+      },
+      ACTION_TIMEOUT_MS
+    );
+    const data = await parseJsonResponse(response);
+    if (response.ok) {
+      if (Array.isArray(data.party)) {
+        party.value = normalizePartyState(data.party);
+      }
+      return;
+    }
+    throw new Error(data.error || `Error party_sync ${response.status}`);
+  } catch (err) {
+    console.error('No se pudo sincronizar party:', err);
+  }
+};
+const schedulePartySync = () => {
+  if (partySyncTimer) clearTimeout(partySyncTimer);
+  partySyncTimer = setTimeout(() => {
+    syncPartySnapshot();
+    partySyncTimer = null;
+  }, 350);
+};
+const handleInventoryLog = (message) => {
+  if (!message) return;
+  history.value.push({ type: 'action', content: `Inventario: ${message}` });
+  scrollToBottom();
+};
+const handlePartyUpdate = (nextParty) => {
+  if (!Array.isArray(nextParty) || nextParty.length === 0) return;
+  party.value = normalizePartyState(nextParty);
+  schedulePartySync();
+};
+const handleCombatPartySync = (partySnapshot) => {
+  if (!Array.isArray(partySnapshot) || partySnapshot.length === 0) return;
+  party.value = normalizePartyState(partySnapshot);
+  schedulePartySync();
+};
+const handleCombatEnd = async (payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  combatEncounter.value = null;
+  if (Array.isArray(payload.partySnapshot) && payload.partySnapshot.length > 0) {
+    party.value = payload.partySnapshot;
+  }
+  if (Array.isArray(payload.transcript) && payload.transcript.length > 0) {
+    payload.transcript.forEach((line) => {
+      if (line) history.value.push({ type: 'combat', content: line });
+    });
+  }
+  await scrollToBottom();
+  const resolutionRequestId = generateRequestId();
+  await callNarrator(
+    payload.summary || 'El combate ha concluido y la escuadra evalúa sus siguientes pasos.',
+    resolutionRequestId,
+    { allowTacticalCombat: false, forceCombatOverride: false }
+  );
+};
 const handleAction = async (option) => {
-  if (isTyping.value || isSubmittingAction.value || chapterEnded.value) return;
-
+  if (isTyping.value || isSubmittingAction.value || chapterEnded.value || combatEncounter.value) return;
   const requestId = generateRequestId();
   isSubmittingAction.value = true;
   try {
@@ -391,10 +475,13 @@ const handleAction = async (option) => {
     isSubmittingAction.value = false;
   }
 };
-
-const callNarrator = async (playerAction, requestId) => {
+const callNarrator = async (playerAction, requestId, config = {}) => {
   isTyping.value = true;
   let aiEntry = null;
+  const allowTacticalCombat = config.allowTacticalCombat !== false;
+  const forceCombat = typeof config.forceCombatOverride === 'boolean'
+    ? config.forceCombatOverride
+    : actionsSinceLastCombat.value >= COMBAT_STREAK_LIMIT;
   try {
     const response = await fetchWithTimeout(
       '/api/game/stream',
@@ -407,12 +494,12 @@ const callNarrator = async (playerAction, requestId) => {
             role: h.type === 'narrative' ? 'model' : 'user',
             text: h.content
           })),
-          worldSeed: `Contexto: ${locationName.value}. Día ${day.value} de ${dayLimit.value}. Días restantes: ${daysRemaining.value}`
+          worldSeed: `Contexto: ${locationName.value}. Día ${day.value} de ${dayLimit.value}, tramo ${currentSlotLabel.value}. Días restantes: ${daysRemaining.value}`,
+          forceCombat
         })
       },
       STREAM_TIMEOUT_MS
     );
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Stream ${response.status}: ${errorText}`);
@@ -420,46 +507,68 @@ const callNarrator = async (playerAction, requestId) => {
     if (!response.body) {
       throw new Error('Stream sin body');
     }
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-
     aiEntry = { type: 'narrative', content: '' };
     history.value.push(aiEntry);
-
     let fullOutput = "";
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
       const chunk = decoder.decode(value, { stream: true });
       fullOutput += chunk;
-
-      if (fullOutput.length > MAX_STREAM_CHARS) {
-        fullOutput = fullOutput.slice(0, MAX_STREAM_CHARS);
-        await reader.cancel('max_stream_size');
-        break;
-      }
-
       aiEntry.content = extractNarrativeText(fullOutput);
-
       await scrollToBottom();
     }
-
     const narrativeText = extractNarrativeText(fullOutput);
     aiEntry.content = narrativeText || aiEntry.content;
-
-    const parsedOptions = processFinalTags(fullOutput);
-    if (parsedOptions.length > 0) {
-      currentOptions.value = parsedOptions;
+    const eventMeta = parseEventTags(fullOutput, locationName.value);
+    let narrativeForSync = narrativeText;
+    if (eventMeta.combate) {
+      const combatLine = `Combate ${eventMeta.tipo}: ${eventMeta.enemigo} en ${eventMeta.entorno}.`;
+      history.value.push({ type: 'combat', content: combatLine });
+      narrativeForSync = narrativeText ? `${combatLine}\n${narrativeText}` : combatLine;
+      actionsSinceLastCombat.value = 0;
+    } else {
+      actionsSinceLastCombat.value += 1;
+    }
+    if (!eventMeta.combate && forceCombat) {
+      eventMeta.combate = true;
+      eventMeta.tipo = 'escaramuza';
+      eventMeta.enemigo = eventMeta.enemigo || 'patrulla hostil';
+      eventMeta.entorno = eventMeta.entorno || locationName.value;
+      const forcedCombatLine = `Combate ${eventMeta.tipo}: ${eventMeta.enemigo} en ${eventMeta.entorno}.`;
+      history.value.push({ type: 'combat', content: forcedCombatLine });
+      narrativeForSync = narrativeText ? `${forcedCombatLine}\n${narrativeText}` : forcedCombatLine;
+      actionsSinceLastCombat.value = 0;
     }
 
+    if (eventMeta.combate && allowTacticalCombat) {
+      combatEncounter.value = {
+        id: `cmb_${Date.now()}`,
+        enemyName: eventMeta.enemigo,
+        enemyType: eventMeta.tipo,
+        environment: eventMeta.entorno,
+        tone: eventMeta.tono || ''
+      };
+      currentOptions.value = [];
+      await syncNarration(requestId, narrativeForSync, []);
+      history.value.push({
+        type: 'narrative',
+        content: 'Combate táctico iniciado. Gestiona turnos, tiradas y acciones de tu escuadra en el panel de batalla.'
+      });
+      await scrollToBottom();
+      return;
+    }
+
+    const parsedOptions = processFinalTags(fullOutput, eventMeta);
+    const nextOptions = parsedOptions.length > 0 ? parsedOptions : buildFallbackOptions(eventMeta.combate);
+    currentOptions.value = nextOptions;
     await syncNarration(
       requestId,
-      narrativeText,
-      parsedOptions.length > 0 ? parsedOptions : currentOptions.value
+      narrativeForSync,
+      nextOptions
     );
-
     await scrollToBottom();
   } catch (err) {
     console.error("Error en stream:", err);
@@ -476,56 +585,6 @@ const callNarrator = async (playerAction, requestId) => {
     isTyping.value = false;
   }
 };
-
-const processFinalTags = (text) => {
-  if (!text || typeof text !== 'string') return [];
-
-  const openTag = '<DECISIONES>';
-  const closeTag = '</DECISIONES>';
-  const openIdx = text.indexOf(openTag);
-  if (openIdx === -1) return [];
-
-  let block = text.slice(openIdx + openTag.length);
-  const closeIdx = block.indexOf(closeTag);
-  if (closeIdx !== -1) {
-    block = block.slice(0, closeIdx);
-  }
-
-  const eventsIdx = block.indexOf('<EVENTOS>');
-  if (eventsIdx !== -1) {
-    block = block.slice(0, eventsIdx);
-  }
-
-  const toId = (label, i) => {
-    const base = String(label || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 40);
-    return base || `opcion_${Date.now()}_${i + 1}`;
-  };
-
-  return block
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const withId = line.match(/\[id:([^\]]+)\]\s*(.*)/i);
-      if (withId) {
-        return { id: withId[1].trim(), label: withId[2].trim(), type: 'narrative' };
-      }
-
-      const numbered = line.match(/^\d+\)\s*(.*)/);
-      if (numbered && numbered[1].trim()) {
-        const label = numbered[1].trim();
-        return { id: toId(label, i), label, type: 'narrative' };
-      }
-
-      return null;
-    })
-    .filter((option) => option && option.label);
-};
-
 const scrollToBottom = async () => {
   await nextTick();
   if (logContainer.value) {
@@ -535,32 +594,25 @@ const scrollToBottom = async () => {
     });
   }
 };
-
 const toggleMenu = () => router.push('/userpage');
 const goToFriendsHub = () => router.push('/friends');
-
 onMounted(() => {
   loadAlliancePreview();
   fetchGameState();
 });
 </script>
-
 <style scoped lang="scss">
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,700;1,400&display=swap');
-
 $gold: #c5a059;
 $gold-bright: #f0d7a3;
 $crimson: #8a1c1c;
 $bg-dark: #050505;
 $border-alpha: rgba(197, 160, 89, 0.2);
-
 .game-viewport {
   width: 100vw; height: 100vh; height: 100dvh; background: $bg-dark;
   color: #eee; overflow: hidden; position: relative;
   display: flex; flex-direction: column;
 }
-
-
 .fx-layer {
   position: absolute; inset: 0; pointer-events: none;
   &.bg-image { background-size: cover; background-position: center; opacity: 0.3; transition: 2s; z-index: 1; }
@@ -568,12 +620,10 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   &.grain { background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.05; z-index: 3; }
   &.scanlines { background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02)); background-size: 100% 4px, 3px 100%; z-index: 4; }
 }
-
 .hud-top {
   height: 70px; display: flex; justify-content: space-between; align-items: center;
   padding: 0 30px; border-bottom: 1px solid $border-alpha; z-index: 10;
   background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
-
   .location-display {
     text-align: center;
     .campaign-name { font-size: 0.7rem; color: #777; letter-spacing: 3px; font-family: 'Cinzel'; }
@@ -584,28 +634,35 @@ $border-alpha: rgba(197, 160, 89, 0.2);
       font-family: 'Cinzel';
       letter-spacing: 1px;
       span { font-size: 0.75rem; }
-      small { display: block; font-size: 0.65rem; color: #666; }
+      small { display: block; }
+      .slot-track {
+        font-size: 0.72rem;
+        color: $gold-bright;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-shadow: 0 0 10px rgba($gold, 0.32);
+      }
+      .days-track {
+        font-size: 0.67rem;
+        color: rgba($gold, 0.82);
+      }
     }
   }
 }
-
 .btn-hud {
   background: rgba(20,20,20,0.6); border: 1px solid $border-alpha; color: $gold;
   padding: 10px 20px; font-family: 'Cinzel'; cursor: pointer; transition: 0.3s;
   display: flex; align-items: center; gap: 10px;
   &:hover { background: $gold; color: #000; border-color: $gold; }
 }
-
-
 .main-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
   height: calc(100vh - 70px);
   min-height: 0;
   position: relative;
   z-index: 5;
 }
-
 .party-sidebar {
   background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-right: 1px solid $border-alpha;
   padding: 30px 20px; display: flex; flex-direction: column; gap: 20px;
@@ -613,13 +670,11 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   min-height: 0;
   .sidebar-header { font-family: 'Cinzel'; color: #555; font-size: 0.8rem; letter-spacing: 2px; text-align: center; }
 }
-
 .hero-card {
   background: rgba(15,15,15,0.8); border: 1px solid #222; padding: 15px; display: flex; gap: 15px;
   transition: 0.4s; position: relative;
   &:hover { border-color: $gold; transform: translateX(5px); background: rgba($gold, 0.05); }
   &.hero-dead { filter: grayscale(1); opacity: 0.4; }
-
   .hero-icon { font-size: 2rem; }
   .hp-bar-bg { width: 100%; height: 4px; background: #000; margin-top: 8px; border: 1px solid #333; }
   .hp-fill { height: 100%; background: linear-gradient(90deg, $crimson, #ff4d4d); transition: 1s ease-out; }
@@ -627,13 +682,10 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   .hero-role { font-size: 0.7rem; color: #666; text-transform: uppercase; }
   .hero-hp-text { font-size: 0.7rem; color: #999; margin-top: 5px; }
 }
-
-
 .game-stage {
   display: flex;
   flex-direction: column;
-  max-width: 980px;
-  margin: 0 auto;
+  margin: 0;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -641,7 +693,9 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   padding: 0 16px 12px;
   box-sizing: border-box;
 }
-
+.inventory-dock {
+  min-height: 0;
+}
 .log-container {
   flex: 1 1 auto;
   min-height: 0;
@@ -656,17 +710,21 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   &::-webkit-scrollbar { width: 10px; }
   &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
   &::-webkit-scrollbar-thumb { background: rgba($gold, 0.45); border-radius: 12px; }
-
-  .text-narrative { font-family: 'Crimson Text', serif; font-size: 1.3rem; line-height: 1.8; color: #ccc; animation: fadeIn 1.5s ease; }
+  .text-narrative {
+    font-family: 'Crimson Text', serif;
+    font-size: 1.3rem;
+    line-height: 1.8;
+    color: #ccc;
+    animation: fadeIn 1.5s ease;
+    white-space: pre-line;
+  }
   .text-combat { background: rgba($crimson, 0.1); border-left: 3px solid $crimson; padding: 20px; color: #ff6b6b; font-family: 'Cinzel'; }
   .text-action { font-family: 'Cinzel'; color: $gold; opacity: 0.7; font-size: 0.9rem; }
 }
-
 .ai-typing {
   display: flex; align-items: center; gap: 15px; color: $gold; font-family: 'Cinzel'; font-size: 0.8rem;
   .typing-loader { display: flex; gap: 5px; span { width: 4px; height: 4px; background: $gold; border-radius: 50%; animation: bounce 1.4s infinite; } }
 }
-
 .action-bar {
   flex: 0 0 auto;
   padding: 18px 0 10px;
@@ -682,7 +740,6 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   &.bar-disabled { opacity: 0.5; pointer-events: none; }
   .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
 }
-
 .chapter-end {
   text-align: center;
   border: 1px solid rgba($gold, 0.35);
@@ -691,7 +748,6 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   h3 { font-family: 'Cinzel'; color: $gold; margin-bottom: 10px; letter-spacing: 2px; }
   p { color: #aaa; margin-bottom: 16px; font-size: 0.9rem; }
 }
-
 .no-options {
   grid-column: 1 / -1;
   color: #777;
@@ -699,7 +755,16 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   font-family: 'Cinzel';
   font-size: 0.85rem;
 }
-
+.combat-waiting {
+  text-align: center;
+  border: 1px solid rgba($crimson, 0.4);
+  background: rgba($crimson, 0.08);
+  color: #d9a8a8;
+  padding: 14px;
+  font-family: 'Cinzel';
+  letter-spacing: 1px;
+  font-size: 0.78rem;
+}
 .btn-action-fantasy {
   background: rgba(10,10,10,0.8); border: 1px solid #333; color: #aaa;
   padding: 18px; cursor: pointer; font-family: 'Cinzel'; transition: 0.4s;
@@ -707,10 +772,8 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   &:hover { border-color: $gold; color: $gold; background: rgba($gold, 0.05); }
   &.btn-danger:hover { border-color: $crimson; color: #ff4d4d; background: rgba($crimson, 0.05); }
 }
-
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
-
 .friends-panel {
   position: absolute; right: 0; top: 0; bottom: 0; width: 350px;
   background: rgba(5,5,5,0.98); border-left: 1px solid $gold; z-index: 100; padding: 40px;
@@ -735,19 +798,23 @@ $border-alpha: rgba(197, 160, 89, 0.2);
   }
   .close-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem; }
 }
-
 .panel-slide-enter-active, .panel-slide-leave-active { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 .panel-slide-enter-from, .panel-slide-leave-to { transform: translateX(100%); }
-
-@media (max-width: 1100px) {
+@media (max-width: 1380px) {
+  .main-layout {
+    grid-template-columns: 250px minmax(0, 1fr) 290px;
+  }
+}
+@media (max-width: 1180px) {
   .main-layout {
     grid-template-columns: 1fr;
   }
-
   .party-sidebar {
     display: none;
   }
-
+  .inventory-dock {
+    display: none;
+  }
   .log-container .text-narrative {
     font-size: 1.13rem;
     line-height: 1.7;

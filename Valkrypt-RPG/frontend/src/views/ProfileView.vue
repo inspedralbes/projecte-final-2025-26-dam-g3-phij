@@ -42,6 +42,54 @@
             <strong>{{ stats.outgoingRequests }}</strong>
           </article>
         </div>
+
+        <article class="rank-card">
+          <span class="rank-kicker">RANGO ACTUAL</span>
+          <strong>{{ stats.rankLabel }}</strong>
+          <p>Puntuación de perfil: {{ stats.profileScore }}</p>
+        </article>
+
+        <div class="deep-stats">
+          <article>
+            <span>CAPÍTULOS COMPLETADOS</span>
+            <strong>{{ stats.completedChapters }}</strong>
+          </article>
+          <article>
+            <span>DECISIONES TOMADAS</span>
+            <strong>{{ stats.decisionEntries }}</strong>
+          </article>
+          <article>
+            <span>TURNOS COOP</span>
+            <strong>{{ stats.coopTurnsTaken }}</strong>
+          </article>
+          <article>
+            <span>PALABRAS NARRADAS</span>
+            <strong>{{ stats.totalStoryWords }}</strong>
+          </article>
+        </div>
+
+        <section class="achievements-box">
+          <header>
+            <h3>LOGROS</h3>
+            <small>{{ unlockedAchievements }} / {{ achievements.length }} desbloqueados</small>
+          </header>
+          <p v-if="achievements.length === 0" class="achievements-empty">Aún no hay logros disponibles.</p>
+          <div v-else class="achievement-list">
+            <article
+              v-for="achievement in achievements"
+              :key="achievement.id"
+              class="achievement-item"
+              :class="{ unlocked: achievement.unlocked }"
+            >
+              <div class="icon">{{ achievement.unlocked ? '✓' : '◌' }}</div>
+              <div class="txt">
+                <strong>{{ achievement.title }}</strong>
+                <p>{{ achievement.description }}</p>
+                <small>{{ achievement.progress }} / {{ achievement.goal }}</small>
+              </div>
+            </article>
+          </div>
+        </section>
       </section>
 
       <section class="editor-card">
@@ -125,13 +173,22 @@ const stats = reactive({
   friends: 0,
   incomingRequests: 0,
   outgoingRequests: 0,
-  savedCampaigns: 0
+  savedCampaigns: 0,
+  completedChapters: 0,
+  decisionEntries: 0,
+  coopTurnsTaken: 0,
+  totalStoryWords: 0,
+  profileScore: 0,
+  rankId: 'aprendiz',
+  rankLabel: 'Aprendiz de Aventura'
 });
+const achievements = ref([]);
 
 const avatarInitial = computed(() => {
   const source = form.displayName || username.value || '?';
   return source.charAt(0).toUpperCase();
 });
+const unlockedAchievements = computed(() => achievements.value.filter((item) => item?.unlocked).length);
 
 const normalizeText = (value, max) => String(value || '').trim().slice(0, max);
 
@@ -148,6 +205,7 @@ const readUserFromStorage = () => {
 
 const applyUserToForm = (user) => {
   const profile = user?.profile && typeof user.profile === 'object' ? user.profile : {};
+  const rawStats = user?.stats && typeof user.stats === 'object' ? user.stats : {};
   form.displayName = normalizeText(profile.displayName || user?.username || '', 32);
   form.title = normalizeText(profile.title || 'Aventurero', 60);
   form.faction = normalizeText(profile.faction || 'Independiente', 40);
@@ -155,10 +213,28 @@ const applyUserToForm = (user) => {
   form.avatar = normalizeText(profile.avatar || '', 500);
   form.character = normalizeText(user?.character || '', 80);
 
-  stats.friends = Number(user?.stats?.friends || 0);
-  stats.incomingRequests = Number(user?.stats?.incomingRequests || 0);
-  stats.outgoingRequests = Number(user?.stats?.outgoingRequests || 0);
-  stats.savedCampaigns = Number(user?.stats?.savedCampaigns || 0);
+  stats.friends = Number(rawStats.friends || 0);
+  stats.incomingRequests = Number(rawStats.incomingRequests || 0);
+  stats.outgoingRequests = Number(rawStats.outgoingRequests || 0);
+  stats.savedCampaigns = Number(rawStats.savedCampaigns || 0);
+  stats.completedChapters = Number(rawStats.completedChapters || 0);
+  stats.decisionEntries = Number(rawStats.decisionEntries || 0);
+  stats.coopTurnsTaken = Number(rawStats.coopTurnsTaken || 0);
+  stats.totalStoryWords = Number(rawStats.totalStoryWords || 0);
+  stats.profileScore = Number(rawStats.profileScore || 0);
+  stats.rankId = String(rawStats?.rank?.id || 'aprendiz');
+  stats.rankLabel = String(rawStats?.rank?.label || 'Aprendiz de Aventura');
+
+  achievements.value = Array.isArray(user?.achievements)
+    ? user.achievements.map((entry) => ({
+      id: String(entry?.id || ''),
+      title: String(entry?.title || 'Logro'),
+      description: String(entry?.description || ''),
+      progress: Number(entry?.progress || 0),
+      goal: Number(entry?.goal || 0),
+      unlocked: Boolean(entry?.unlocked)
+    }))
+    : [];
 };
 
 const mergeUserInStorage = (updatedUser) => {
@@ -413,6 +489,148 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.rank-card {
+  margin-top: 12px;
+  border: 1px solid rgba(197, 160, 89, 0.22);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 12px;
+}
+
+.rank-card .rank-kicker {
+  display: block;
+  color: #968463;
+  font-size: 0.65rem;
+  letter-spacing: 1.3px;
+}
+
+.rank-card strong {
+  display: block;
+  margin-top: 6px;
+  color: #f0d9a4;
+  font-size: 1rem;
+}
+
+.rank-card p {
+  margin: 6px 0 0;
+  color: #aa9a79;
+  font-size: 0.76rem;
+}
+
+.deep-stats {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.deep-stats article {
+  border: 1px solid rgba(197, 160, 89, 0.16);
+  background: rgba(0, 0, 0, 0.32);
+  padding: 10px;
+}
+
+.deep-stats span {
+  display: block;
+  color: #9a8868;
+  font-size: 0.62rem;
+  letter-spacing: 1.2px;
+}
+
+.deep-stats strong {
+  display: block;
+  margin-top: 6px;
+  color: #dfc993;
+}
+
+.achievements-box {
+  margin-top: 12px;
+  border: 1px solid rgba(197, 160, 89, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px;
+}
+
+.achievements-box header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.achievements-box h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #c7a96b;
+  letter-spacing: 1.2px;
+}
+
+.achievements-box small {
+  color: #a89572;
+  font-size: 0.67rem;
+}
+
+.achievements-empty {
+  margin: 0;
+  color: #9f8e70;
+  font-size: 0.78rem;
+}
+
+.achievement-list {
+  display: grid;
+  gap: 7px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.achievement-item {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px;
+}
+
+.achievement-item.unlocked {
+  border-color: rgba(92, 197, 126, 0.45);
+  background: rgba(31, 73, 42, 0.26);
+}
+
+.achievement-item .icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  color: #d5c39d;
+  border: 1px solid rgba(197, 160, 89, 0.3);
+}
+
+.achievement-item.unlocked .icon {
+  border-color: rgba(92, 197, 126, 0.5);
+  color: #8df0b0;
+}
+
+.achievement-item .txt strong {
+  display: block;
+  font-size: 0.74rem;
+  color: #f3efe6;
+}
+
+.achievement-item .txt p {
+  margin: 3px 0 0;
+  color: #b4a17d;
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.achievement-item .txt small {
+  display: block;
+  margin-top: 5px;
+  color: #d9c088;
+}
+
 .stat {
   border: 1px solid rgba(197, 160, 89, 0.18);
   background: rgba(0, 0, 0, 0.48);
@@ -555,6 +773,10 @@ onMounted(async () => {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .deep-stats {
     grid-template-columns: 1fr;
   }
 

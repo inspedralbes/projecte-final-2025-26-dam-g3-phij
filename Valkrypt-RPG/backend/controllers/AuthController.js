@@ -2,6 +2,12 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const { getDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
+const {
+    PROFILE_LIMITS,
+    sanitizeText,
+    sanitizeProfileForResponse,
+    buildAdvancedProfileData
+} = require('../utils/profileStats');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -9,57 +15,23 @@ const nodemailer = require('nodemailer');
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 15);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
-const MAX_PROFILE_TEXT_LENGTH = {
-    displayName: 32,
-    title: 60,
-    faction: 40,
-    bio: 320,
-    avatar: 500,
-    character: 80
-};
-
-const sanitizeText = (value, maxLength, { allowEmpty = true } = {}) => {
-    if (value === undefined || value === null) return null;
-    const normalized = String(value)
-        .replace(/\s+/g, ' ')
-        .replace(/[<>]/g, '')
-        .trim();
-
-    if (!allowEmpty && !normalized) return null;
-    if (normalized.length > maxLength) {
-        return normalized.slice(0, maxLength);
-    }
-    return normalized;
-};
-
-const sanitizeProfileForResponse = (user) => {
-    const username = String(user?.username || '').trim();
-    const profile = user?.profile && typeof user.profile === 'object' ? user.profile : {};
-    const displayName = sanitizeText(profile.displayName, MAX_PROFILE_TEXT_LENGTH.displayName, { allowEmpty: true }) || username;
-
-    return {
-        displayName,
-        title: sanitizeText(profile.title, MAX_PROFILE_TEXT_LENGTH.title, { allowEmpty: true }) || 'Aventurero',
-        faction: sanitizeText(profile.faction, MAX_PROFILE_TEXT_LENGTH.faction, { allowEmpty: true }) || 'Independiente',
-        bio: sanitizeText(profile.bio, MAX_PROFILE_TEXT_LENGTH.bio, { allowEmpty: true }) || '',
-        avatar: sanitizeText(profile.avatar, MAX_PROFILE_TEXT_LENGTH.avatar, { allowEmpty: true }) || ''
-    };
-};
-
-const buildUserPayload = (user, extraStats = {}) => {
-    const stats = {
-        friends: Array.isArray(user?.friends) ? user.friends.length : 0,
-        incomingRequests: Array.isArray(user?.friendRequests?.incoming) ? user.friendRequests.incoming.length : 0,
-        outgoingRequests: Array.isArray(user?.friendRequests?.outgoing) ? user.friendRequests.outgoing.length : 0,
-        savedCampaigns: Number(extraStats.savedCampaigns || 0)
-    };
+const buildUserPayload = (user, advanced = {}) => {
+    const safeStats = advanced?.stats && typeof advanced.stats === 'object'
+        ? advanced.stats
+        : {
+            friends: Array.isArray(user?.friends) ? user.friends.length : 0,
+            incomingRequests: Array.isArray(user?.friendRequests?.incoming) ? user.friendRequests.incoming.length : 0,
+            outgoingRequests: Array.isArray(user?.friendRequests?.outgoing) ? user.friendRequests.outgoing.length : 0,
+            savedCampaigns: 0
+        };
 
     return {
         id: String(user._id),
         username: user.username,
-        character: sanitizeText(user?.character, MAX_PROFILE_TEXT_LENGTH.character, { allowEmpty: true }) || null,
+        character: sanitizeText(user?.character, PROFILE_LIMITS.character, { allowEmpty: true }) || null,
         profile: sanitizeProfileForResponse(user),
-        stats,
+        stats: safeStats,
+        achievements: Array.isArray(advanced?.achievements) ? advanced.achievements : [],
         createdAt: user.createdAt || null,
         updatedAt: user.updatedAt || null
     };
@@ -267,7 +239,7 @@ class AuthController {
                 user: { 
                     id: String(user._id), 
                     username: user.username,
-                    character: sanitizeText(user?.character, MAX_PROFILE_TEXT_LENGTH.character, { allowEmpty: true }) || null,
+                    character: sanitizeText(user?.character, PROFILE_LIMITS.character, { allowEmpty: true }) || null,
                     profile: sanitizeProfileForResponse(user),
                     saveData: user.saveData,
                     friends: Array.isArray(user.friends) ? user.friends : [],
@@ -297,13 +269,11 @@ class AuthController {
             }
 
             const db = getDB();
-            const savedCampaigns = await db.collection('saves').countDocuments({
-                userId: new ObjectId(String(userId))
-            });
+            const advanced = await buildAdvancedProfileData(db, user);
 
             return res.json({
                 success: true,
-                user: buildUserPayload(user, { savedCampaigns })
+                user: buildUserPayload(user, advanced)
             });
         } catch (error) {
             console.error("Error cargando perfil:", error);
@@ -332,12 +302,12 @@ class AuthController {
                 return res.status(404).json({ error: "Usuario no encontrado." });
             }
 
-            const nextDisplayName = sanitizeText(displayName, MAX_PROFILE_TEXT_LENGTH.displayName, { allowEmpty: true });
-            const nextTitle = sanitizeText(title, MAX_PROFILE_TEXT_LENGTH.title, { allowEmpty: true });
-            const nextFaction = sanitizeText(faction, MAX_PROFILE_TEXT_LENGTH.faction, { allowEmpty: true });
-            const nextBio = sanitizeText(bio, MAX_PROFILE_TEXT_LENGTH.bio, { allowEmpty: true });
-            const nextAvatar = sanitizeText(avatar, MAX_PROFILE_TEXT_LENGTH.avatar, { allowEmpty: true });
-            const nextCharacter = sanitizeText(character, MAX_PROFILE_TEXT_LENGTH.character, { allowEmpty: true });
+            const nextDisplayName = sanitizeText(displayName, PROFILE_LIMITS.displayName, { allowEmpty: true });
+            const nextTitle = sanitizeText(title, PROFILE_LIMITS.title, { allowEmpty: true });
+            const nextFaction = sanitizeText(faction, PROFILE_LIMITS.faction, { allowEmpty: true });
+            const nextBio = sanitizeText(bio, PROFILE_LIMITS.bio, { allowEmpty: true });
+            const nextAvatar = sanitizeText(avatar, PROFILE_LIMITS.avatar, { allowEmpty: true });
+            const nextCharacter = sanitizeText(character, PROFILE_LIMITS.character, { allowEmpty: true });
 
             if (nextAvatar && !validateAvatar(nextAvatar)) {
                 return res.status(400).json({ error: "El avatar debe ser una URL http(s) o una ruta local válida." });
@@ -359,14 +329,12 @@ class AuthController {
 
             const updatedUser = await User.findById(userId);
             const db = getDB();
-            const savedCampaigns = await db.collection('saves').countDocuments({
-                userId: new ObjectId(String(userId))
-            });
+            const advanced = await buildAdvancedProfileData(db, updatedUser);
 
             return res.json({
                 success: true,
                 message: "Perfil actualizado correctamente.",
-                user: buildUserPayload(updatedUser, { savedCampaigns })
+                user: buildUserPayload(updatedUser, advanced)
             });
         } catch (error) {
             console.error("Error actualizando perfil:", error);

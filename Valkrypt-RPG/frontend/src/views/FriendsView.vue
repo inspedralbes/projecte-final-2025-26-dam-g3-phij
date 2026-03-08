@@ -2,7 +2,6 @@
   <div class="friends-hub">
     <div class="fx fog"></div>
     <div class="fx vignette"></div>
-
     <nav class="hub-nav">
       <router-link to="/userpage" class="back-link">← VOLVER AL BASTIÓN</router-link>
       <div class="nav-title">
@@ -11,7 +10,6 @@
       </div>
       <button class="btn-nav" @click="goToLobby">ABRIR LOBBY</button>
     </nav>
-
     <section class="summary-grid">
       <article class="summary-card">
         <span class="label">ALIADOS</span>
@@ -30,7 +28,6 @@
         <strong>{{ activeRooms.length }}</strong>
       </article>
     </section>
-
     <main class="hub-grid">
       <section class="panel social-panel">
         <header class="panel-head">
@@ -39,7 +36,6 @@
             {{ loadingSocial ? 'ACTUALIZANDO...' : 'REFRESCAR' }}
           </button>
         </header>
-
         <div class="add-friend-box">
           <h3>Buscar jugador</h3>
           <div class="add-friend-row">
@@ -54,7 +50,6 @@
               {{ searchingUsers ? 'BUSCANDO...' : 'BUSCAR' }}
             </button>
           </div>
-
           <div v-if="searchResults.length > 0" class="search-results">
             <article v-for="candidate in searchResults" :key="candidate" class="result-card">
               <span>{{ candidate }}</span>
@@ -67,7 +62,6 @@
             No hay resultados con ese nombre.
           </p>
         </div>
-
         <div class="requests-box">
           <h3>Solicitudes entrantes</h3>
           <div v-if="incomingRequests.length === 0" class="empty-note">No tienes solicitudes pendientes.</div>
@@ -81,7 +75,6 @@
             </article>
           </div>
         </div>
-
         <div class="requests-box outgoing">
           <h3>Solicitudes enviadas</h3>
           <div v-if="outgoingRequests.length === 0" class="empty-note">No tienes solicitudes enviadas.</div>
@@ -90,13 +83,11 @@
           </div>
         </div>
       </section>
-
       <section class="panel allies-panel">
         <header class="panel-head">
           <h2>Aliados</h2>
           <input v-model="friendFilter" type="text" class="search-input" placeholder="Filtrar aliados" />
         </header>
-
         <div v-if="filteredFriends.length === 0" class="empty-note">No hay aliados para mostrar.</div>
         <div v-else class="allies-list">
           <article
@@ -111,23 +102,21 @@
               <p>{{ friend.statusLabel }}</p>
             </div>
             <div class="ally-actions">
+              <button class="btn-ally ghost" @click="openPublicProfile(friend.username)">VER PERFIL</button>
               <button class="btn-ally" @click="openChat(friend.username)">CHAT</button>
               <button class="btn-ally ghost" @click="inviteToRoom(friend.username)">INVITAR</button>
             </div>
           </article>
         </div>
       </section>
-
       <section class="panel chat-panel">
         <header class="panel-head chat-head">
           <h2>Chat privado</h2>
           <small v-if="selectedChatFriend">Con {{ selectedChatFriend }}</small>
         </header>
-
         <div v-if="!selectedChatFriend" class="empty-note chat-empty">
           Selecciona un aliado para abrir conversación.
         </div>
-
         <template v-else>
           <div class="chat-messages" ref="chatContainer">
             <div v-if="loadingChat" class="mini-note">Cargando mensajes...</div>
@@ -144,7 +133,6 @@
               Aún no hay mensajes en esta conversación.
             </div>
           </div>
-
           <div class="chat-send-row">
             <textarea
               v-model="chatDraft"
@@ -160,7 +148,6 @@
           </div>
         </template>
       </section>
-
       <section class="panel rooms-panel">
         <header class="panel-head rooms-head">
           <h2>Salas activas</h2>
@@ -171,14 +158,11 @@
             <button class="btn-nav" @click="goToLobby">LOBBY</button>
           </div>
         </header>
-
         <p v-if="roomsError" class="error-msg">{{ roomsError }}</p>
-
         <div v-if="loadingRooms" class="mini-note">Leyendo salas abiertas...</div>
         <div v-else-if="activeRooms.length === 0" class="empty-note">
           No hay salas disponibles ahora mismo.
         </div>
-
         <div v-else class="rooms-list">
           <article v-for="room in activeRooms" :key="room.roomCode" class="room-card">
             <header>
@@ -212,26 +196,21 @@
         </div>
       </section>
     </main>
-
     <p v-if="statusMessage" class="status-msg">{{ statusMessage }}</p>
   </div>
 </template>
-
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-
 const router = useRouter();
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
 const userId = user.value?.id || user.value?._id || '';
 const myUsername = user.value?.username || '';
 const token = localStorage.getItem('token');
-
 const loadingSocial = ref(false);
 const friends = ref([]);
 const incomingRequests = ref([]);
 const outgoingRequests = ref([]);
-
 const friendFilter = ref('');
 const searchCandidate = ref('');
 const searchResults = ref([]);
@@ -239,26 +218,21 @@ const searchingUsers = ref(false);
 const sendingRequestTo = ref('');
 const processingRequest = ref('');
 const searchTouched = ref(false);
-
 const activeRooms = ref([]);
 const loadingRooms = ref(false);
 const roomsError = ref('');
 const joiningRoomCode = ref('');
-
 const selectedChatFriend = ref('');
 const chatMessages = ref([]);
 const chatDraft = ref('');
 const loadingChat = ref(false);
 const sendingChat = ref(false);
 const chatContainer = ref(null);
-
 const statusMessage = ref('');
 const socialPresence = ref({});
-
 let socialTimer = null;
 let roomsTimer = null;
 let chatTimer = null;
-
 const normalizeUsername = (value) => {
   if (typeof value === 'string') return value.trim();
   if (value && typeof value === 'object') {
@@ -267,7 +241,6 @@ const normalizeUsername = (value) => {
   }
   return '';
 };
-
 const normalizedFriends = computed(() => {
   return friends.value.map((friendEntry) => {
     const username = normalizeUsername(friendEntry);
@@ -281,15 +254,12 @@ const normalizedFriends = computed(() => {
     };
   }).filter(Boolean);
 });
-
 const filteredFriends = computed(() => {
   const term = friendFilter.value.trim().toLowerCase();
   if (!term) return normalizedFriends.value;
   return normalizedFriends.value.filter((friend) => friend.username.toLowerCase().includes(term));
 });
-
 const onlineFriendsCount = computed(() => normalizedFriends.value.filter((f) => f.status === 'online').length);
-
 const setLocalUserSocial = () => {
   const localUser = JSON.parse(localStorage.getItem('user') || '{}');
   localStorage.setItem('user', JSON.stringify({
@@ -301,11 +271,9 @@ const setLocalUserSocial = () => {
     }
   }));
 };
-
 const authHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
-
 const loadSocialState = async () => {
   loadingSocial.value = true;
   try {
@@ -313,11 +281,9 @@ const loadSocialState = async () => {
       headers: authHeaders()
     });
     const data = await response.json();
-
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     friends.value = Array.isArray(data.friends)
       ? data.friends.map(normalizeUsername).filter(Boolean)
       : [];
@@ -330,7 +296,6 @@ const loadSocialState = async () => {
     socialPresence.value = data?.presence && typeof data.presence === 'object'
       ? data.presence
       : {};
-
     if (!selectedChatFriend.value && friends.value.length > 0) {
       selectedChatFriend.value = normalizeUsername(friends.value[0]);
       await fetchChatMessages();
@@ -343,28 +308,23 @@ const loadSocialState = async () => {
     loadingSocial.value = false;
   }
 };
-
 const performUserSearch = async () => {
   const query = searchCandidate.value.trim();
   searchTouched.value = true;
   searchResults.value = [];
-
   if (query.length < 2) {
     statusMessage.value = 'Escribe al menos 2 caracteres para buscar usuarios.';
     return;
   }
-
   searchingUsers.value = true;
   try {
     const response = await fetch(`/api/social/users/search?userId=${encodeURIComponent(userId)}&q=${encodeURIComponent(query)}`, {
       headers: authHeaders()
     });
     const data = await response.json();
-
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     searchResults.value = Array.isArray(data.users) ? data.users : [];
   } catch (error) {
     console.error('Error buscando usuarios:', error);
@@ -373,7 +333,6 @@ const performUserSearch = async () => {
     searchingUsers.value = false;
   }
 };
-
 const sendFriendRequest = async (username) => {
   sendingRequestTo.value = username;
   try {
@@ -388,12 +347,10 @@ const sendFriendRequest = async (username) => {
         toUsername: username
       })
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     statusMessage.value = data.message || `Solicitud enviada a ${username}`;
     searchResults.value = searchResults.value.filter((entry) => entry !== username);
     await loadSocialState();
@@ -404,7 +361,6 @@ const sendFriendRequest = async (username) => {
     sendingRequestTo.value = '';
   }
 };
-
 const acceptFriendRequest = async (fromUsername) => {
   processingRequest.value = fromUsername;
   try {
@@ -419,12 +375,10 @@ const acceptFriendRequest = async (fromUsername) => {
         fromUsername
       })
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     statusMessage.value = data.message || `Ahora eres aliado de ${fromUsername}`;
     await loadSocialState();
   } catch (error) {
@@ -434,7 +388,6 @@ const acceptFriendRequest = async (fromUsername) => {
     processingRequest.value = '';
   }
 };
-
 const rejectFriendRequest = async (fromUsername) => {
   processingRequest.value = fromUsername;
   try {
@@ -449,12 +402,10 @@ const rejectFriendRequest = async (fromUsername) => {
         fromUsername
       })
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     statusMessage.value = data.message || `Solicitud rechazada de ${fromUsername}`;
     await loadSocialState();
   } catch (error) {
@@ -464,7 +415,6 @@ const rejectFriendRequest = async (fromUsername) => {
     processingRequest.value = '';
   }
 };
-
 const fetchActiveRooms = async () => {
   loadingRooms.value = true;
   roomsError.value = '';
@@ -472,12 +422,10 @@ const fetchActiveRooms = async () => {
     const response = await fetch('/api/rooms/active', {
       headers: authHeaders()
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.message || `Error ${response.status}`);
     }
-
     activeRooms.value = Array.isArray(data.rooms) ? data.rooms : [];
   } catch (error) {
     console.error('No se pudieron cargar salas:', error);
@@ -487,22 +435,18 @@ const fetchActiveRooms = async () => {
     loadingRooms.value = false;
   }
 };
-
 const isUserInRoom = (room) => {
   const players = Array.isArray(room?.players) ? room.players : [];
   return players.some((player) => String(player?.userId || '') === String(userId));
 };
-
 const joinRoom = async (room) => {
   joiningRoomCode.value = room.roomCode;
   statusMessage.value = '';
-
   if (isUserInRoom(room)) {
     router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } });
     joiningRoomCode.value = '';
     return;
   }
-
   try {
     const response = await fetch('/api/rooms/join', {
       method: 'POST',
@@ -517,12 +461,10 @@ const joinRoom = async (room) => {
         character: user.value.character || null
       })
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.message || `Error ${response.status}`);
     }
-
     router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } });
   } catch (error) {
     console.error('Error uniéndose a sala:', error);
@@ -531,11 +473,9 @@ const joinRoom = async (room) => {
     joiningRoomCode.value = '';
   }
 };
-
 const goToLobby = () => {
   router.push({ name: 'RoomLobby' });
 };
-
 const inviteToRoom = async (username) => {
   const ownRoom = activeRooms.value.find((room) => {
     const players = Array.isArray(room.players) ? room.players : [];
@@ -545,12 +485,10 @@ const inviteToRoom = async (username) => {
       return playerId === String(userId) || playerName === String(myUsername).toLowerCase();
     });
   });
-
   if (!ownRoom) {
     statusMessage.value = `No estás en una sala. Crea o únete a una para invitar a ${username}.`;
     return;
   }
-
   const inviteText = `Te invito a mi sala de Valkrypt: ${ownRoom.roomCode}`;
   try {
     const response = await fetch('/api/social/chat/send', {
@@ -569,7 +507,6 @@ const inviteToRoom = async (username) => {
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     statusMessage.value = `Invitación enviada a ${username} (sala ${ownRoom.roomCode}).`;
     if (selectedChatFriend.value === username) {
       await fetchChatMessages();
@@ -581,16 +518,18 @@ const inviteToRoom = async (username) => {
     statusMessage.value = `No se pudo enviar por chat. Código ${ownRoom.roomCode} copiado para invitar a ${username}.`;
   }
 };
-
+const openPublicProfile = async (username) => {
+  const target = String(username || '').trim();
+  if (!target) return;
+  router.push({ name: 'profile-public', params: { username: target } });
+};
 const openChat = async (username) => {
   selectedChatFriend.value = username;
   chatDraft.value = '';
   await fetchChatMessages();
 };
-
 const fetchChatMessages = async () => {
   if (!selectedChatFriend.value) return;
-
   loadingChat.value = true;
   try {
     const response = await fetch(
@@ -598,11 +537,9 @@ const fetchChatMessages = async () => {
       { headers: authHeaders() }
     );
     const data = await response.json();
-
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     chatMessages.value = Array.isArray(data.messages) ? data.messages : [];
     await nextTick();
     if (chatContainer.value) {
@@ -615,11 +552,9 @@ const fetchChatMessages = async () => {
     loadingChat.value = false;
   }
 };
-
 const sendChatMessage = async () => {
   const text = chatDraft.value.trim();
   if (!text || !selectedChatFriend.value) return;
-
   sendingChat.value = true;
   try {
     const response = await fetch('/api/social/chat/send', {
@@ -634,12 +569,10 @@ const sendChatMessage = async () => {
         message: text
       })
     });
-
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Error ${response.status}`);
     }
-
     chatDraft.value = '';
     if (data.message) {
       chatMessages.value.push(data.message);
@@ -655,7 +588,6 @@ const sendChatMessage = async () => {
     sendingChat.value = false;
   }
 };
-
 const formatChatDate = (dateValue) => {
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return '--:--';
@@ -666,27 +598,22 @@ const formatChatDate = (dateValue) => {
     minute: '2-digit'
   });
 };
-
 onMounted(async () => {
   if (!userId || !myUsername) {
     router.push('/login');
     return;
   }
-
   await Promise.all([loadSocialState(), fetchActiveRooms()]);
-
   socialTimer = setInterval(loadSocialState, 8000);
   roomsTimer = setInterval(fetchActiveRooms, 5000);
   chatTimer = setInterval(() => {
     if (selectedChatFriend.value) fetchChatMessages();
   }, 4000);
 });
-
 onBeforeUnmount(() => {
   if (socialTimer) clearInterval(socialTimer);
   if (roomsTimer) clearInterval(roomsTimer);
   if (chatTimer) clearInterval(chatTimer);
 });
 </script>
-
 <style scoped lang="scss" src="../styles/friends-view.scss"></style>

@@ -11,6 +11,7 @@ import RoomLobby from './views/RoomLobby.vue'
 import GameRoom from './views/GameRoom.vue'
 import CodiceView from './views/CodiceView.vue'
 import ProfileView from './views/ProfileView.vue'
+import PublicProfileView from './views/PublicProfileView.vue'
 
 const routes = [
   { 
@@ -72,6 +73,11 @@ const routes = [
     path: '/profile',
     name: 'profile',
     component: ProfileView
+  },
+  {
+    path: '/profile/:username',
+    name: 'profile-public',
+    component: PublicProfileView
   }
 ]
 

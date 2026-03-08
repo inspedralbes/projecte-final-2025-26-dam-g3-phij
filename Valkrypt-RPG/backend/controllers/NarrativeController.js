@@ -3,8 +3,10 @@ const { ObjectId } = require('mongodb');
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_HISTORY_ITEMS = 14;
-const DEFAULT_DAY_LIMIT_FALLBACK = 7;
-const MAX_CLIENT_NARRATIVE_CHARS = 9000;
+const MIN_DAY_LIMIT = 30;
+const ACTIONS_PER_DAY = 3;
+const DAY_PHASES = ['mañana', 'tarde', 'noche'];
+const DEFAULT_DAY_LIMIT_FALLBACK = MIN_DAY_LIMIT;
 const MAX_SYNC_OPTIONS = 6;
 const NARRATIVE_SETTINGS_CACHE_TTL_MS = 30000;
 
@@ -14,8 +16,9 @@ Reglas globales:
 - Mantén un tono inmersivo, tenso y cinematográfico.
 - Integra la acción del jugador de forma coherente con el contexto previo.
 - Avanza la trama con consecuencias claras.
-- Escribe la narrativa en 1 a 3 párrafos breves.
+- Escribe la narrativa de forma desarrollada y natural, sin límite estricto de palabras. Evita respuestas telegráficas.
 - Si la acción del jugador es violenta, imprudente o desafiante, prioriza eventos de combate.
+- Debe aparecer una situación de combate con frecuencia (aprox. cada 2 acciones).
 - Si hay combate, usa tipo_combate válido: escaramuza, elite o jefe.
 - Si no hay combate, usa tipo_combate: ninguno.
 
@@ -46,11 +49,11 @@ const DEFAULT_NARRATIVE_SETTINGS = {
     key: 'global',
     defaultDayLimit: DEFAULT_DAY_LIMIT_FALLBACK,
     introTemplate: 'La crónica "{campaignTitle}" comienza en {locationName}. Las decisiones del grupo moldearán el destino del reino. Nadie conoce aún la magnitud de lo que aguarda bajo la piedra.',
-    tutorialTemplate: 'TUTORIAL DE CAMPAÑA:\n1) Cada acción consume tiempo y avanza el calendario.\n2) Vigila el estado del grupo y el contexto antes de decidir.\n3) La campaña termina cuando se agotan los días del capítulo.\n4) Te quedan {dayLimit} días para resolver esta misión principal.',
+    tutorialTemplate: 'TUTORIAL DE CAMPAÑA:\n1) Cada día se divide en mañana, tarde y noche (3 acciones por día).\n2) Coordina cada turno según el tramo horario actual.\n3) La campaña termina cuando se agotan los días del capítulo.\n4) Te quedan {dayLimit} días para resolver esta misión principal.',
     initialOptions: DEFAULT_INITIAL_OPTIONS,
     generationConfig: {
-        temperature: 0.9,
-        maxOutputTokens: 65535
+        temperature: 0.75,
+        maxOutputTokens: 4096
     },
     systemPrompt: DEFAULT_SYSTEM_PROMPT
 };
@@ -92,20 +95,123 @@ function writeEventToResponse(rawEvent, res) {
     return 0;
 }
 
+function normalizeHeroEffects(rawEffects) {
+    const source = rawEffects && typeof rawEffects === 'object' ? rawEffects : {};
+    return {
+        healMin: Number.isFinite(Number(source.healMin)) ? Math.max(0, Math.floor(Number(source.healMin))) : 0,
+        healMax: Number.isFinite(Number(source.healMax)) ? Math.max(0, Math.floor(Number(source.healMax))) : 0,
+        attack: Number.isFinite(Number(source.attack)) ? Math.floor(Number(source.attack)) : 0,
+        defense: Number.isFinite(Number(source.defense)) ? Math.floor(Number(source.defense)) : 0,
+        healPower: Number.isFinite(Number(source.healPower)) ? Math.floor(Number(source.healPower)) : 0,
+        skillAccuracy: Number.isFinite(Number(source.skillAccuracy)) ? Math.floor(Number(source.skillAccuracy)) : 0,
+        enemyAccuracyPenalty: Number.isFinite(Number(source.enemyAccuracyPenalty)) ? Math.floor(Number(source.enemyAccuracyPenalty)) : 0,
+        cleanse: Boolean(source.cleanse)
+    };
+}
+
+function normalizeHeroItem(rawItem, fallbackId = '') {
+    const itemType = rawItem?.type === 'equipment' ? 'equipment' : 'consumable';
+    const quantityRaw = Number(rawItem?.quantity);
+    const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? Math.floor(quantityRaw) : 1;
+    return {
+        id: String(rawItem?.id || fallbackId || `item_${Date.now()}`),
+        name: rawItem?.name ? String(rawItem.name) : (itemType === 'equipment' ? 'Equipo' : 'Consumible'),
+        type: itemType,
+        subtype: rawItem?.subtype ? String(rawItem.subtype) : '',
+        slot: rawItem?.slot ? String(rawItem.slot) : '',
+        quantity,
+        description: rawItem?.description ? String(rawItem.description) : '',
+        effects: normalizeHeroEffects(rawItem?.effects)
+    };
+}
+
+function normalizeHeroSkill(rawSkill, fallbackId = '') {
+    const parseIntField = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? Math.floor(parsed) : fallback;
+    };
+
+    return {
+        id: String(rawSkill?.id || fallbackId || `skill_${Date.now()}`),
+        name: rawSkill?.name ? String(rawSkill.name) : 'Habilidad',
+        description: rawSkill?.description ? String(rawSkill.description) : '',
+        type: rawSkill?.type ? String(rawSkill.type) : 'attack',
+        dice: rawSkill?.dice ? String(rawSkill.dice) : 'd8',
+        accuracy: parseIntField(rawSkill?.accuracy, 0),
+        power: parseIntField(rawSkill?.power, 0),
+        guardBonus: parseIntField(rawSkill?.guardBonus, 0),
+        critBoost: parseIntField(rawSkill?.critBoost, 0),
+        enemyAccuracyPenalty: parseIntField(rawSkill?.enemyAccuracyPenalty, 0),
+        cooldown: Math.max(0, parseIntField(rawSkill?.cooldown, 0))
+    };
+}
+
+function normalizeHeroEquipmentSlot(rawItem, slotKey, fallbackId) {
+    if (!rawItem || typeof rawItem !== 'object') return null;
+    return normalizeHeroItem(
+        { ...rawItem, type: 'equipment', slot: slotKey, quantity: 1 },
+        fallbackId
+    );
+}
+
 function normalizeHero(rawHero) {
     const maxHpValue = Number(rawHero?.maxHp ?? rawHero?.hp);
     const safeMaxHp = Number.isFinite(maxHpValue) && maxHpValue > 0 ? maxHpValue : 1;
     const hpValue = Number(rawHero?.hp ?? safeMaxHp);
     const safeHp = Number.isFinite(hpValue) ? Math.max(0, Math.min(hpValue, safeMaxHp)) : safeMaxHp;
+    const heroId = String(rawHero?.id ?? rawHero?._id ?? '');
+    const heroAttack = Number(rawHero?.attack);
+    const heroDefense = Number(rawHero?.defense);
+
+    const inventory = Array.isArray(rawHero?.inventory)
+        ? rawHero.inventory
+            .map((item, index) => normalizeHeroItem(item, `${heroId || 'hero'}_inv_${index + 1}`))
+            .filter((item) => item.quantity > 0)
+            .slice(0, 80)
+        : [];
+
+    const skills = Array.isArray(rawHero?.skills)
+        ? rawHero.skills
+            .map((skill, index) => normalizeHeroSkill(skill, `${heroId || 'hero'}_skill_${index + 1}`))
+            .slice(0, 20)
+        : [];
+
+    const sourceEquipment = rawHero?.equipment && typeof rawHero.equipment === 'object'
+        ? rawHero.equipment
+        : {};
+    const equipment = {
+        weapon: normalizeHeroEquipmentSlot(
+            sourceEquipment.weapon,
+            'weapon',
+            `${heroId || 'hero'}_eq_weapon`
+        ),
+        armor: normalizeHeroEquipmentSlot(
+            sourceEquipment.armor,
+            'armor',
+            `${heroId || 'hero'}_eq_armor`
+        ),
+        trinket: normalizeHeroEquipmentSlot(
+            sourceEquipment.trinket,
+            'trinket',
+            `${heroId || 'hero'}_eq_trinket`
+        )
+    };
 
     return {
-        id: String(rawHero?.id ?? rawHero?._id ?? ''),
+        id: heroId,
         name: rawHero?.name || 'Héroe',
         role: rawHero?.role || 'Aventurero',
         weapon: rawHero?.weapon || '',
         icon: rawHero?.icon || '⚔️',
         hp: safeHp,
-        maxHp: safeMaxHp
+        maxHp: safeMaxHp,
+        attack: Number.isFinite(heroAttack) ? Math.floor(heroAttack) : 0,
+        defense: Number.isFinite(heroDefense) ? Math.floor(heroDefense) : 0,
+        archetype: rawHero?.archetype ? String(rawHero.archetype) : '',
+        statusEffects: Array.isArray(rawHero?.statusEffects) ? rawHero.statusEffects.slice(0, 20) : [],
+        inventory,
+        skills,
+        equipment
     };
 }
 
@@ -113,6 +219,21 @@ function toPositiveInt(value, fallback) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
     return Math.floor(parsed);
+}
+
+function normalizeDayLimit(value, fallback = DEFAULT_DAY_LIMIT_FALLBACK) {
+    return Math.max(MIN_DAY_LIMIT, toPositiveInt(value, fallback));
+}
+
+function normalizeSlotIndex(value, fallback = 0) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+    return Math.min(ACTIONS_PER_DAY - 1, Math.floor(parsed));
+}
+
+function dayPhaseLabel(slotIndex) {
+    const safeSlot = normalizeSlotIndex(slotIndex, 0);
+    return DAY_PHASES[safeSlot] || DAY_PHASES[0];
 }
 
 function toBoundedNumber(value, fallback, min, max) {
@@ -129,6 +250,13 @@ function renderTemplate(template, variables) {
     });
 }
 
+function decodeEscapedNewlines(text) {
+    const source = String(text || '');
+    return source
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n');
+}
+
 function normalizeInitialOptions(rawOptions) {
     const normalized = normalizeClientOptions(rawOptions);
     return normalized.length > 0 ? normalized : DEFAULT_INITIAL_OPTIONS;
@@ -138,13 +266,13 @@ function normalizeNarrativeSettings(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
     return {
         key: 'global',
-        defaultDayLimit: toPositiveInt(source.defaultDayLimit, DEFAULT_NARRATIVE_SETTINGS.defaultDayLimit),
-        introTemplate: typeof source.introTemplate === 'string' && source.introTemplate.trim()
+        defaultDayLimit: normalizeDayLimit(source.defaultDayLimit, DEFAULT_NARRATIVE_SETTINGS.defaultDayLimit),
+        introTemplate: decodeEscapedNewlines(typeof source.introTemplate === 'string' && source.introTemplate.trim()
             ? source.introTemplate.trim()
-            : DEFAULT_NARRATIVE_SETTINGS.introTemplate,
-        tutorialTemplate: typeof source.tutorialTemplate === 'string' && source.tutorialTemplate.trim()
+            : DEFAULT_NARRATIVE_SETTINGS.introTemplate),
+        tutorialTemplate: decodeEscapedNewlines(typeof source.tutorialTemplate === 'string' && source.tutorialTemplate.trim()
             ? source.tutorialTemplate.trim()
-            : DEFAULT_NARRATIVE_SETTINGS.tutorialTemplate,
+            : DEFAULT_NARRATIVE_SETTINGS.tutorialTemplate),
         initialOptions: normalizeInitialOptions(source.initialOptions),
         generationConfig: {
             temperature: toBoundedNumber(
@@ -153,9 +281,15 @@ function normalizeNarrativeSettings(raw) {
                 0,
                 2
             ),
-            maxOutputTokens: toPositiveInt(
-                source?.generationConfig?.maxOutputTokens,
-                DEFAULT_NARRATIVE_SETTINGS.generationConfig.maxOutputTokens
+            maxOutputTokens: Math.max(
+                4096,
+                Math.min(
+                    8192,
+                    toPositiveInt(
+                        source?.generationConfig?.maxOutputTokens,
+                        DEFAULT_NARRATIVE_SETTINGS.generationConfig.maxOutputTokens
+                    )
+                )
             )
         },
         systemPrompt: typeof source.systemPrompt === 'string' && source.systemPrompt.trim()
@@ -207,23 +341,48 @@ async function findCampaignByAnyId(db, campaignId) {
 }
 
 function buildIntroText(campaignTitle, locationName, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
-    return renderTemplate(narrativeSettings.introTemplate, {
+    return renderTemplate(decodeEscapedNewlines(narrativeSettings.introTemplate), {
         campaignTitle,
         locationName
     });
 }
 
 function buildTutorialText(dayLimit, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
-    return renderTemplate(narrativeSettings.tutorialTemplate, {
-        dayLimit
+    return renderTemplate(decodeEscapedNewlines(narrativeSettings.tutorialTemplate), {
+        dayLimit,
+        actionsPerDay: ACTIONS_PER_DAY
     });
+}
+
+function toBoolean(value) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value !== 'string') return false;
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'si' || normalized === 'sí';
+}
+
+function buildRuntimeSystemPrompt(basePrompt, { forceCombat = false } = {}) {
+    const base = String(basePrompt || '').trim() || DEFAULT_SYSTEM_PROMPT;
+    const runtimeRules = [
+        'Reglas obligatorias adicionales para ESTA respuesta:',
+        '- Estas reglas tienen prioridad sobre cualquier instrucción previa.',
+        '- <NARRATIVA> debe estar bien desarrollada, con detalle de ambiente, acción y consecuencia inmediata.',
+        '- Si la respuesta queda corta, amplíala hasta que se sienta completa para el turno.',
+        '- <DECISIONES> debe incluir exactamente 3 opciones accionables.',
+        '- <EVENTOS> debe estar completo y con valores válidos.',
+        forceCombat
+            ? '- OBLIGATORIO: combate: si y tipo_combate distinto de ninguno.'
+            : '- Si no hay combate, usa tipo_combate: ninguno.'
+    ].join('\n');
+    return `${base}\n\n${runtimeRules}`;
 }
 
 function normalizeCampaign(rawCampaign, narrativeSettings = DEFAULT_NARRATIVE_SETTINGS) {
     const id = rawCampaign?.id || rawCampaign?.slug || (rawCampaign?._id ? String(rawCampaign._id) : '');
     const title = rawCampaign?.title || 'Campaña sin título';
     const location = rawCampaign?.location || 'Ubicación desconocida';
-    const dayLimit = toPositiveInt(rawCampaign?.dayLimit, narrativeSettings.defaultDayLimit);
+    const dayLimit = normalizeDayLimit(rawCampaign?.dayLimit, narrativeSettings.defaultDayLimit);
 
     return {
         id,
@@ -233,21 +392,27 @@ function normalizeCampaign(rawCampaign, narrativeSettings = DEFAULT_NARRATIVE_SE
         img: rawCampaign?.img || '',
         dayLimit,
         introText: rawCampaign?.introText || buildIntroText(title, location, narrativeSettings),
-        tutorialText: rawCampaign?.tutorialText || buildTutorialText(dayLimit, narrativeSettings),
+        tutorialText: buildTutorialText(dayLimit, narrativeSettings),
         heroes: Array.isArray(rawCampaign?.heroes) ? rawCampaign.heroes.map(normalizeHero) : []
     };
 }
 
 function enrichSaveState(rawSave) {
-    const dayLimit = toPositiveInt(rawSave?.dayLimit, DEFAULT_DAY_LIMIT_FALLBACK);
+    const dayLimit = normalizeDayLimit(rawSave?.dayLimit, DEFAULT_DAY_LIMIT_FALLBACK);
     const saveDay = toPositiveInt(rawSave?.day, 1);
     const day = Math.max(1, Math.min(saveDay, dayLimit));
+    const slotIndex = normalizeSlotIndex(rawSave?.slotIndex, 0);
+    const slotLabel = dayPhaseLabel(slotIndex);
     const chapterStatus = rawSave?.chapterStatus === 'completed' ? 'completed' : 'active';
     const chapterEnded = chapterStatus === 'completed';
 
     return {
         ...rawSave,
         day,
+        slotIndex,
+        slotLabel,
+        actionsPerDay: ACTIONS_PER_DAY,
+        actionsRemainingToday: Math.max(0, ACTIONS_PER_DAY - (slotIndex + 1)),
         dayLimit,
         daysRemaining: Math.max(0, dayLimit - day),
         chapterStatus,
@@ -268,6 +433,7 @@ function normalizeSaveSummary(rawSave) {
         updatedAt: saveState?.updatedAt || saveState?.createdAt || null,
         img: saveState?.currentBackground || '',
         day: saveState.day,
+        slotLabel: saveState.slotLabel,
         dayLimit: saveState.dayLimit,
         chapterStatus: saveState.chapterStatus
     };
@@ -446,23 +612,27 @@ class NarrativeController {
                         img: sessionData.currentBackground || sessionData.img,
                         dayLimit: sessionData.dayLimit
                     }, narrativeSettings);
-                const dayLimit = toPositiveInt(campaignData.dayLimit, narrativeSettings.defaultDayLimit);
+                const dayLimit = normalizeDayLimit(campaignData.dayLimit, narrativeSettings.defaultDayLimit);
                 const introText = campaignData.introText || buildIntroText(campaignData.title, campaignData.location, narrativeSettings);
                 const tutorialText = campaignData.tutorialText || buildTutorialText(dayLimit, narrativeSettings);
+                const initialParty = Array.isArray(sessionData.party)
+                    ? sessionData.party.map(normalizeHero)
+                    : [];
                 const newSave = {
                     userId: userObjectId,
                     campaignId: campaignData.id || sessionData.campaignId || '',
                     campaignTitle: campaignData.title,
                     locationName: campaignData.location,
                     currentBackground: campaignData.img || sessionData.currentBackground || sessionData.img || '',
-                    party: Array.isArray(sessionData.party) ? sessionData.party : [],
+                    party: initialParty,
                     history: [
                         { type: 'narrative', content: introText },
                         { type: 'narrative', content: tutorialText },
-                        { type: 'narrative', content: `Día 1 de ${dayLimit}. El capítulo comienza ahora.` }
+                        { type: 'narrative', content: `Día 1 de ${dayLimit}, mañana. El capítulo comienza ahora.` }
                     ],
                     currentOptions: normalizeInitialOptions(narrativeSettings.initialOptions),
                     day: 1,
+                    slotIndex: 0,
                     dayLimit,
                     chapterStatus: 'active',
                     turn: 1,
@@ -494,9 +664,12 @@ class NarrativeController {
                 }
 
                 const narrativeText = typeof syncData.narrative === 'string'
-                    ? syncData.narrative.trim().slice(0, MAX_CLIENT_NARRATIVE_CHARS)
+                    ? syncData.narrative.trim()
                     : '';
                 const syncedOptions = normalizeClientOptions(syncData.options);
+                const syncedParty = Array.isArray(syncData.party)
+                    ? syncData.party.map(normalizeHero).filter(hero => hero.id || hero.name)
+                    : [];
                 const nextHistory = Array.isArray(currentSave.history) ? [...currentSave.history] : [];
 
                 if (narrativeText) {
@@ -513,6 +686,9 @@ class NarrativeController {
                     turn: currentTurn + 1,
                     updatedAt: new Date()
                 };
+                if (syncedParty.length > 0) {
+                    updatePayload.party = syncedParty;
+                }
 
                 const updateFilter = {
                     ...buildOptimisticTurnFilter(userObjectId, currentSave, currentTurn),
@@ -530,6 +706,32 @@ class NarrativeController {
                         error: "Estado actualizado por otra acción. Reintenta sincronizar narración.",
                         retryable: true
                     });
+                }
+
+                const updatedSave = await db.collection('saves').findOne({ userId: userObjectId });
+                return res.json(buildActionResponse(updatedSave));
+            }
+
+            if (safeAction.type === 'party_sync') {
+                const syncData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
+                const incomingParty = Array.isArray(syncData.party) ? syncData.party : [];
+                if (incomingParty.length === 0) {
+                    return res.status(400).json({ error: "party requerida para party_sync" });
+                }
+
+                const syncedParty = incomingParty.map(normalizeHero).filter(hero => hero.id || hero.name);
+                const updateResult = await db.collection('saves').updateOne(
+                    { userId: userObjectId },
+                    {
+                        $set: {
+                            party: syncedParty,
+                            updatedAt: new Date()
+                        }
+                    }
+                );
+
+                if (updateResult.matchedCount === 0) {
+                    return res.status(404).json({ error: "Save not found" });
                 }
 
                 const updatedSave = await db.collection('saves').findOne({ userId: userObjectId });
@@ -558,15 +760,20 @@ class NarrativeController {
             const history = Array.isArray(currentSave.history) ? [...currentSave.history] : [];
             history.push({ type: actionType, content: `Acción: ${actionLabel}` });
 
-            const nextDayCandidate = saveState.day + 1;
+            const currentSlotIndex = normalizeSlotIndex(saveState.slotIndex, 0);
+            const nextSlotCandidate = currentSlotIndex + 1;
+            const dayIncrease = nextSlotCandidate >= ACTIONS_PER_DAY ? 1 : 0;
+            const slotIndex = dayIncrease === 1 ? 0 : nextSlotCandidate;
+            const nextDayCandidate = saveState.day + dayIncrease;
             const chapterEnded = nextDayCandidate > saveState.dayLimit;
             const day = chapterEnded ? saveState.dayLimit : nextDayCandidate;
+            const finalSlotIndex = chapterEnded ? (ACTIONS_PER_DAY - 1) : slotIndex;
             const chapterStatus = chapterEnded ? 'completed' : 'active';
 
             if (chapterEnded) {
                 history.push({
                     type: 'narrative',
-                    content: `El Día ${saveState.dayLimit} se cierra y concluye este capítulo de la campaña. El grupo ha alcanzado el límite de tiempo para esta misión.`
+                    content: `La noche del Día ${saveState.dayLimit} marca el cierre del capítulo. Se agotaron los días disponibles para esta misión.`
                 });
             }
 
@@ -574,6 +781,7 @@ class NarrativeController {
             const updatePayload = {
                 history,
                 day,
+                slotIndex: finalSlotIndex,
                 dayLimit: saveState.dayLimit,
                 chapterStatus,
                 turn: currentTurn + 1,
@@ -613,12 +821,16 @@ class NarrativeController {
     }
 
     static async stream(req, res) {
-        const { playerAction, storyHistory, worldSeed } = req.body || {};
+        const { playerAction, storyHistory, worldSeed, forceCombat } = req.body || {};
         const apiKey = process.env.GEMINI_API_KEY;
         const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
         const history = normalizeHistory(storyHistory);
-        const playerPrompt = `${worldSeed ? `Contexto: ${worldSeed}\n` : ''}Acción del jugador: ${playerAction}`.trim();
+        const mustForceCombat = toBoolean(forceCombat);
+        const combatDirective = mustForceCombat
+            ? '\nDirectiva de turno: forzar_combate: si.'
+            : '';
+        const playerPrompt = `${worldSeed ? `Contexto: ${worldSeed}\n` : ''}Acción del jugador: ${playerAction}${combatDirective}`.trim();
         history.push({ role: 'user', parts: [{ text: playerPrompt }] });
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -630,11 +842,14 @@ class NarrativeController {
 
             const db = getDB();
             const narrativeSettings = await getNarrativeSettings(db);
+            const systemPrompt = buildRuntimeSystemPrompt(narrativeSettings.systemPrompt, {
+                forceCombat: mustForceCombat
+            });
             const response = await fetch(`${GEMINI_API_BASE_URL}/models/${model}:streamGenerateContent?alt=sse`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
                 body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: narrativeSettings.systemPrompt }] },
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
                     contents: history,
                     generationConfig: {
                         temperature: narrativeSettings.generationConfig.temperature,

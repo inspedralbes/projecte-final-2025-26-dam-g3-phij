@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.post('/presence/heartbeat', SocialController.heartbeat);
 router.get('/state/:userId', SocialController.getState);
+router.get('/profile/:username', SocialController.getPublicProfile);
 router.get('/users/search', SocialController.searchUsers);
 router.post('/friends/request', SocialController.sendFriendRequest);
 router.post('/friends/accept', SocialController.acceptFriendRequest);
