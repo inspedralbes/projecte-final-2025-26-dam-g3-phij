@@ -30,6 +30,8 @@ class WebSocketManager {
                     this.broadcast(roomCode, { ...msg, type: 'playerAction' }, ws);
                     break;
                 case 'chatMessage':
+                    this.broadcast(roomCode, msg);
+                    break;
                 case 'updateGameState':
                 case 'startGame':
                     this.broadcast(roomCode, msg, ws);

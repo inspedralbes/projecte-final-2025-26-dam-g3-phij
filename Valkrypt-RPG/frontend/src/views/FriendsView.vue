@@ -89,13 +89,15 @@ main {
   }
 }
 
-.friends-list {
+.friends-list,
+.multiplayer {
   background: rgba(20,20,20,0.9);
   padding: 20px;
   border-radius: 6px;
 
   h3 { color: #d4af37; margin-bottom: 15px; }
-
+}
+.friends-list {
   .empty { color: #777; font-style: italic; }
 
   ul { list-style: none; margin: 0; padding: 0;
@@ -135,12 +137,6 @@ main {
 }
 
 .multiplayer {
-  background: rgba(20,20,20,0.9);
-  padding: 20px;
-  border-radius: 6px;
-
-  h3 { color: #d4af37; margin-bottom: 15px; }
-
   .btn-rooms {
     background: #c5a059;
     border: none;

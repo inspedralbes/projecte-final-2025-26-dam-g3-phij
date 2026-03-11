@@ -7,7 +7,6 @@ import UserPage from './views/UserPage.vue'
 import GameView from './views/GameView.vue'
 import CharacterSelect from './views/CharacterSelect.vue'
 import RoomLobby from './views/RoomLobby.vue'
-import GameRoom from './views/GameRoom.vue'
 
 const routes = [
   { 
@@ -57,8 +56,8 @@ const routes = [
   },
   {
     path: '/rooms/:roomCode',
-    name: 'GameRoom',
-    component: GameRoom
+    name: 'GameView',
+    component: GameView
   }
 ]
 

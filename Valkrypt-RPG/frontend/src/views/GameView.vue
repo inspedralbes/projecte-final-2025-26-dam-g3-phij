@@ -24,6 +24,11 @@
           <span class="online-indicator">3</span>
           <span>ALIANZAS</span>
         </button>
+        <button class="btn-exit" @click="confirmLeaveRoom">
+          <i class="fas fa-door-open"></i> <span>EXIT</span>
+          
+        </button>
+        
       </div>
     </nav>
 
@@ -64,6 +69,25 @@
           </div>
         </footer>
       </main>
+
+      <aside class="chat-sidebar">
+        <h3><i class="fas fa-comments"></i> CHAT DE LA SALA</h3>
+        <div class="chat-messages" ref="chatMessagesContainer">
+          <div v-for="(msg, index) in chatMessages" :key="index" class="chat-message" :class="`chat-${msg.type}`">
+            <p v-if="msg.type === 'system'">{{ msg.content }}</p>
+            <p v-else><strong>{{ msg.username }}:</strong> {{ msg.content }}</p>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input
+            type="text"
+            v-model="newMessage"
+            @keyup.enter="sendChatMessage"
+            placeholder="Escribe un mensaje..."
+          />
+          <button @click="sendChatMessage"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </aside>
     </div>
 
     <transition name="slide-right">
@@ -92,27 +116,58 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
+import { wsService } from '@/services/WebSocketService';
 
 const route = useRoute();
 const router = useRouter();
 
-
 const showFriends = ref(false);
 const showMenu = ref(false);
-
-
-const campaignTitle = ref("La Sombra de Piedraprofunda");
-const locationName = ref("Taberna El Perro Ciego");
 const currentBackground = ref("https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=1200");
 
-const party = ref([
-  { id: 1, name: 'Kaelen', role: 'Guerrero', hp: 45, maxHp: 50, icon: '⚔️' },
-  { id: 2, name: 'Vax', role: 'Pícaro', hp: 22, maxHp: 30, icon: '🗡️' },
-  { id: 3, name: 'Elara', role: 'Maga', hp: 18, maxHp: 25, icon: '🩸' },
-  { id: 4, name: 'Sorin', role: 'Clérigo', hp: 28, maxHp: 35, icon: '⚖️' }
-]);
+const API_URL = '/api';
+const token = localStorage.getItem('token');
+const currentUser = ref(JSON.parse(localStorage.getItem('user') || '{}'));
+const roomCode = computed(() => route.params.roomCode);
+const room = ref(null);
+
+const campaignTitle = computed(() => room.value?.roomName || "La Sombra de Piedraprofunda");
+const locationName = computed(() => room.value?.location || "Taberna El Perro Ciego");
+
+const party = ref([]);
+
+const chatMessages = ref([]);
+const newMessage = ref('');
+const chatMessagesContainer = ref(null);
+
+const confirmLeaveRoom = () => {
+  if (confirm('Are you sure you want to leave the room?')) {
+    leaveRoom();
+  }
+};
+
+const leaveRoom = async () => {
+  if (!roomCode.value || !currentUser.value.id) {
+    router.push({ name: 'RoomLobby' });
+    return;
+  }
+  try {
+    wsService.leaveRoom(roomCode.value);
+    await axios.post(`${API_URL}/rooms/leave`, {
+      roomCode: roomCode.value,
+      userId: currentUser.value.id
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (err) {
+    console.error("Failed to notify server about leaving room:", err);
+  } finally {
+    router.push({ name: 'RoomLobby' });
+  }
+};
 
 const history = ref([
   { type: 'narrative', content: 'La lluvia golpea el tejado de la taberna. El Rey Alaric busca algo... y vuestras almas están marcadas.' },
@@ -126,12 +181,81 @@ const handleAction = (type) => {
   history.value.push({ type: 'narrative', content: `Decides ${type} la zona con cautela...` });
 };
 
-onMounted(() => {
+const scrollToChatBottom = () => {
+  nextTick(() => {
+    const container = chatMessagesContainer.value;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  });
+};
 
-  const savedSession = JSON.parse(localStorage.getItem('valkrypt_current_game'));
-  if (savedSession) {
-    campaignTitle.value = savedSession.campaignTitle;
-    party.value = savedSession.party.map(p => ({ ...p, hp: 30, maxHp: 30 })); 
+const sendChatMessage = () => {
+  if (!newMessage.value.trim() || !roomCode.value) return;
+  wsService.sendChat(roomCode.value, currentUser.value.username, newMessage.value.trim());
+  newMessage.value = '';
+};
+
+const handleWsMessage = (msg) => {
+  chatMessages.value.push({ type: 'chat', username: msg.username, content: msg.payload.message });
+  scrollToChatBottom();
+};
+
+const handlePlayerEvent = (msg) => {
+  chatMessages.value.push({ type: 'system', content: msg.content });
+  fetchRoomDetails();
+  scrollToChatBottom();
+};
+
+const fetchRoomDetails = async () => {
+  if (!roomCode.value) return;
+  try {
+    const response = await axios.get(`${API_URL}/rooms/${roomCode.value}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.data.success) {
+      room.value = response.data.room;
+      party.value = room.value.players.map(p => ({
+        ...p,
+        id: p.userId,
+        name: p.username,
+        role: p.character?.role || 'Aventurero',
+        icon: p.character?.icon || '👤',
+        hp: 100, // TODO: Sync with game state
+        maxHp: 100,
+      }));
+    }
+  } catch (err) {
+    console.error('Failed to fetch room details:', err);
+    router.push({ name: 'RoomLobby' });
+  }
+};
+
+onMounted(() => {
+  if (roomCode.value) {
+    fetchRoomDetails();
+    wsService.connect().then(() => {
+      wsService.joinRoom(roomCode.value, currentUser.value.id, currentUser.value.username);
+      wsService.on('chatMessage', handleWsMessage);
+      wsService.on('playerJoined', (msg) => handlePlayerEvent({ content: `${msg.username} has joined.` }));
+      wsService.on('playerLeft', (msg) => handlePlayerEvent({ content: `${msg.username} has left.` }));
+      wsService.on('playerDisconnected', (msg) => handlePlayerEvent({ content: `${msg.username} has disconnected.` }));
+    });
+  } else {
+    const savedSession = JSON.parse(localStorage.getItem('valkrypt_current_game'));
+    if (savedSession) {
+      room.value = { roomName: savedSession.campaignTitle, location: "Local" };
+      party.value = savedSession.party.map(p => ({ ...p, hp: 30, maxHp: 30 }));
+    }
+  }
+});
+
+onBeforeUnmount(() => {
+  if (roomCode.value) {
+    wsService.off('chatMessage', handleWsMessage);
+    wsService.off('playerJoined');
+    wsService.off('playerLeft');
+    wsService.off('playerDisconnected');
   }
 });
 </script>
@@ -208,7 +332,7 @@ $crimson: #8a1c1c;
 .main-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px 1fr 320px;
   position: relative;
   z-index: 5;
   height: calc(100vh - 60px);
@@ -300,6 +424,67 @@ $crimson: #8a1c1c;
   &.danger:hover { background: $crimson; color: #fff; border-color: $crimson; }
 }
 
+.chat-sidebar {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  border-left: 1px solid rgba($gold, 0.1);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  height: 100%;
+
+  h3 {
+    font-family: 'Cinzel', serif;
+    color: $gold;
+    font-size: 0.9rem;
+    text-align: center;
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid rgba($gold, 0.2);
+    padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.85rem;
+
+  .chat-message p { margin: 0; line-height: 1.4; }
+  .chat-system { color: #888; font-style: italic; text-align: center; }
+  .chat-chat strong { color: $gold; }
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+
+  input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #444;
+    color: #fff;
+    padding: 10px;
+    border-radius: 3px;
+    &:focus { outline: none; border-color: $gold; }
+  }
+
+  button {
+    background: rgba($gold, 0.8);
+    border: none;
+    color: #000;
+    padding: 0 15px;
+    cursor: pointer;
+    &:hover { background: $gold; }
+  }
+}
 
 .friends-overlay {
   position: absolute;

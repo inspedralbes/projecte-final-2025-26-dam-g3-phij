@@ -114,18 +114,20 @@ class RoomController {
                 });
             }
 
+            const alreadyJoined = room.players.some(p => p.userId === userId);
+            if (alreadyJoined) {
+                // Player is already in the room, let them re-enter.
+                return res.status(200).json({
+                    success: true,
+                    message: 'Re-joined room successfully.',
+                    room
+                });
+            }
+
             if (room.players.length >= room.maxPlayers) {
                 return res.status(400).json({
                     success: false,
                     message: 'Room is full'
-                });
-            }
-
-            const alreadyJoined = room.players.some(p => p.userId === userId);
-            if (alreadyJoined) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Player already in room'
                 });
             }
 

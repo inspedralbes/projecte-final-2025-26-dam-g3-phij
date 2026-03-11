@@ -57,18 +57,10 @@
               </div>
               <button
                 @click="joinRoom(room)"
-                class="btn-join"
-                :disabled="loading || room.players.length >= room.maxPlayers"
+                :class="isVisited(room.roomCode) ? 'btn-reenter' : 'btn-join'"
+                :disabled="loading || (room.players.length >= room.maxPlayers && !isVisited(room.roomCode))"
               >
-                {{ loading ? 'Joining...' : 'Join Room' }}
-              </button>
-              <!-- Re-enter button placed on every card -->
-              <button
-                @click="reenterRoom(room)"
-                class="btn-reenter"
-                :disabled="loading || room.players.length >= room.maxPlayers"
-              >
-                Re-enter
+                {{ loading ? 'Joining...' : (isVisited(room.roomCode) ? 'Re-enter' : 'Join Room') }}
               </button>
 
             </div>
@@ -153,7 +145,7 @@ const createRoom = async () => {
     if (response.data.success) {
       success.value = 'Room created! Joining...';
       newRoom.value.roomName = '';
-      setTimeout(() => router.push({ name: 'GameRoom', params: { roomCode: response.data.room.roomCode } }), 1000);
+      setTimeout(() => router.push({ name: 'GameView', params: { roomCode: response.data.room.roomCode } }), 1000);
     }
   } catch (err) {
     console.error('Error creating room:', err);
@@ -179,7 +171,7 @@ const joinRoom = async (room) => {
       success.value = 'Joined room! Entering game...';
       visitedRooms.value.add(room.roomCode);
       localStorage.setItem(visitedRoomsKey, JSON.stringify([...visitedRooms.value]));
-      setTimeout(() => router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } }), 1000);
+      setTimeout(() => router.push({ name: 'GameView', params: { roomCode: room.roomCode } }), 1000);
     }
   } catch (err) {
     console.error('Error joining room:', err);
@@ -189,15 +181,11 @@ const joinRoom = async (room) => {
   }
 };
 
-const reenterRoom = async (room) => {
-  await joinRoom(room);
-};
-
 const backToMenu = () => {
   router.push({ name: 'friends' });
 };
 
-
+const isVisited = (roomCode) => visitedRooms.value.has(roomCode);
 
 let refreshInterval;
 onMounted(() => {
