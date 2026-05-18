@@ -4,10 +4,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
+    "dev": "node server.js",
     "seed:campaigns": "node scripts/seedCampaigns.js",
     "seed:narrative": "node scripts/seedNarrativeSettings.js",
-    "seed:all": "npm run seed:campaigns && npm run seed:narrative"
+    "seed:all": "npm run seed:campaigns && npm run seed:narrative",
+    "logs:clear": ": > /root/.pm2/logs/valkrypt-out.log && : > /root/.pm2/logs/valkrypt-error.log"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -17,6 +18,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^7.0.0",
     "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
+    "resend": "^6.12.3",
     "ws": "^8.17.0"
   }
 }

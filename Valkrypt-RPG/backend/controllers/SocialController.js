@@ -76,7 +76,7 @@ class SocialController {
         try {
             const { userId } = req.body || {};
             if (!userId || !ObjectId.isValid(String(userId))) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
 
             const db = getDB();
@@ -85,14 +85,14 @@ class SocialController {
                 { projection: { _id: 1 } }
             );
             if (!user) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             await Session.touch(String(user._id), req.headers['user-agent'] || 'Valkrypt-Client');
             return res.json({ success: true, at: new Date().toISOString() });
         } catch (error) {
             console.error('Error social heartbeat:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -102,7 +102,7 @@ class SocialController {
             const { userId } = req.params;
 
             if (!userId || !ObjectId.isValid(userId)) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
 
             const user = await db.collection('users').findOne(
@@ -110,11 +110,61 @@ class SocialController {
                 { projection: { username: 1, friends: 1, friendRequests: 1 } }
             );
             if (!user) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             const requests = getFriendRequestState(user);
             const friendNames = normalizeUsernameArray(user.friends);
+            const myUsername = normalizeUsername(user.username);
+            const myUsernameLower = myUsername.toLowerCase();
+
+            // Reconciliación robusta de solicitudes para evitar estados invertidos/inconsistentes
+            const reciprocalDocs = await db.collection('users').find({
+                $or: [
+                    { 'friendRequests.outgoing': { $regex: `^${escapeRegex(myUsername)}$`, $options: 'i' } },
+                    { 'friendRequests.incoming': { $regex: `^${escapeRegex(myUsername)}$`, $options: 'i' } }
+                ]
+            }, { projection: { username: 1, friendRequests: 1 } }).toArray();
+
+            const incomingSet = toUsernameSet(requests.incoming);
+            const outgoingSet = toUsernameSet(requests.outgoing);
+
+            reciprocalDocs.forEach((doc) => {
+                const otherUsername = normalizeUsername(doc?.username);
+                const otherLower = otherUsername.toLowerCase();
+                if (!otherUsername || otherLower === myUsernameLower) return;
+
+                const otherRequests = getFriendRequestState(doc);
+                const otherIncoming = toUsernameSet(otherRequests.incoming);
+                const otherOutgoing = toUsernameSet(otherRequests.outgoing);
+
+                // si el otro usuario nos tiene en outgoing => nosotros debemos verlo en incoming
+                if (otherOutgoing.has(myUsernameLower)) incomingSet.add(otherLower);
+                // si el otro usuario nos tiene en incoming => nosotros debemos verlo en outgoing
+                if (otherIncoming.has(myUsernameLower)) outgoingSet.add(otherLower);
+            });
+
+            // evita inconsistencias mutuas con amigos ya aceptados
+            const friendSet = toUsernameSet(friendNames);
+            friendSet.forEach((name) => {
+                incomingSet.delete(name);
+                outgoingSet.delete(name);
+            });
+
+            const normalizedIncoming = [...incomingSet];
+            const normalizedOutgoing = [...outgoingSet];
+
+            // Autocorrección de documento actual
+            await db.collection('users').updateOne(
+                { _id: user._id },
+                {
+                    $set: {
+                        'friendRequests.incoming': normalizedIncoming,
+                        'friendRequests.outgoing': normalizedOutgoing,
+                        updatedAt: new Date()
+                    }
+                }
+            );
             const friendPresence = {};
 
             if (friendNames.length > 0) {
@@ -167,12 +217,15 @@ class SocialController {
                 success: true,
                 username: user.username,
                 friends: friendNames,
-                friendRequests: requests,
+                friendRequests: {
+                    incoming: normalizedIncoming,
+                    outgoing: normalizedOutgoing
+                },
                 presence: friendPresence
             });
         } catch (error) {
             console.error('Error social state:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -260,7 +313,7 @@ class SocialController {
             });
         } catch (error) {
             console.error('Error public profile:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -271,7 +324,7 @@ class SocialController {
             const queryText = normalizeUsername(q);
 
             if (!userId || !ObjectId.isValid(String(userId))) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
             if (queryText.length < 2) {
                 return res.status(400).json({ success: false, error: 'Introduce al menos 2 caracteres' });
@@ -279,7 +332,7 @@ class SocialController {
 
             const currentUser = await db.collection('users').findOne({ _id: new ObjectId(String(userId)) });
             if (!currentUser) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             const requests = getFriendRequestState(currentUser);
@@ -305,7 +358,7 @@ class SocialController {
             return res.json({ success: true, users });
         } catch (error) {
             console.error('Error search users:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -324,12 +377,12 @@ class SocialController {
 
             const fromUser = await db.collection('users').findOne({ _id: new ObjectId(String(fromUserId)) });
             if (!fromUser) {
-                return res.status(404).json({ success: false, error: 'Usuario emisor no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari emissor no trobat' });
             }
 
             const toUser = await findUserByUsernameCI(db, targetUsername);
             if (!toUser) {
-                return res.status(404).json({ success: false, error: 'Usuario destino no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari destinatari no trobat' });
             }
             if (String(fromUser._id) === String(toUser._id)) {
                 return res.status(400).json({ success: false, error: 'No puedes agregarte a ti mismo' });
@@ -365,7 +418,7 @@ class SocialController {
             });
         } catch (error) {
             console.error('Error send friend request:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -376,7 +429,7 @@ class SocialController {
             const fromName = normalizeUsername(fromUsername);
 
             if (!userId || !ObjectId.isValid(String(userId))) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
             if (!fromName) {
                 return res.status(400).json({ success: false, error: 'fromUsername requerido' });
@@ -384,7 +437,7 @@ class SocialController {
 
             const user = await db.collection('users').findOne({ _id: new ObjectId(String(userId)) });
             if (!user) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             const fromUser = await findUserByUsernameCI(db, fromName);
@@ -392,8 +445,20 @@ class SocialController {
                 return res.status(404).json({ success: false, error: 'Usuario solicitante no encontrado' });
             }
 
-            const incoming = toUsernameSet(getFriendRequestState(user).incoming);
-            if (!incoming.has(String(fromUser.username).toLowerCase())) {
+            const userRequests = getFriendRequestState(user);
+            const incoming = toUsernameSet(userRequests.incoming);
+            const outgoing = toUsernameSet(userRequests.outgoing);
+            const fromLower = String(fromUser.username || '').toLowerCase();
+
+            const fromUserRequests = getFriendRequestState(fromUser);
+            const fromIncoming = toUsernameSet(fromUserRequests.incoming);
+            const fromOutgoing = toUsernameSet(fromUserRequests.outgoing);
+            const myLower = String(user.username || '').toLowerCase();
+
+            const directPending = incoming.has(fromLower) || fromOutgoing.has(myLower);
+            const invertedPending = outgoing.has(fromLower) || fromIncoming.has(myLower);
+
+            if (!directPending && !invertedPending) {
                 return res.status(409).json({ success: false, error: 'No existe solicitud pendiente' });
             }
 
@@ -423,7 +488,7 @@ class SocialController {
             return res.json({ success: true, message: `Ahora eres aliado de ${fromUser.username}` });
         } catch (error) {
             console.error('Error accept friend request:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -434,7 +499,7 @@ class SocialController {
             const fromName = normalizeUsername(fromUsername);
 
             if (!userId || !ObjectId.isValid(String(userId))) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
             if (!fromName) {
                 return res.status(400).json({ success: false, error: 'fromUsername requerido' });
@@ -442,7 +507,7 @@ class SocialController {
 
             const user = await db.collection('users').findOne({ _id: new ObjectId(String(userId)) });
             if (!user) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             const fromUser = await findUserByUsernameCI(db, fromName);
@@ -471,10 +536,10 @@ class SocialController {
                 )
             ]);
 
-            return res.json({ success: true, message: `Solicitud rechazada de ${fromUser.username}` });
+            return res.json({ success: true, message: `Sol·licitud rebutjada de ${fromUser.username}` });
         } catch (error) {
             console.error('Error reject friend request:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -486,25 +551,25 @@ class SocialController {
             const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 60));
 
             if (!userId || !ObjectId.isValid(String(userId))) {
-                return res.status(400).json({ success: false, error: 'userId no valido' });
+                return res.status(400).json({ success: false, error: 'userId no vàlid' });
             }
             if (!withName) {
-                return res.status(400).json({ success: false, error: 'Parametro with requerido' });
+                return res.status(400).json({ success: false, error: 'Paràmetre with obligatori' });
             }
 
             const user = await db.collection('users').findOne({ _id: new ObjectId(String(userId)) });
             if (!user) {
-                return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari no trobat' });
             }
 
             const friend = await findUserByUsernameCI(db, withName);
             if (!friend) {
-                return res.status(404).json({ success: false, error: 'Usuario de chat no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari del xat no trobat' });
             }
 
             const friendsSet = toUsernameSet(user.friends);
             if (!friendsSet.has(String(friend.username).toLowerCase())) {
-                return res.status(403).json({ success: false, error: 'Solo puedes chatear con aliados' });
+                return res.status(403).json({ success: false, error: 'Només pots xatejar amb aliats' });
             }
 
             await ensureChatIndexes(db);
@@ -535,7 +600,7 @@ class SocialController {
             });
         } catch (error) {
             console.error('Error get chat:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 
@@ -553,25 +618,25 @@ class SocialController {
                 return res.status(400).json({ success: false, error: 'toUsername requerido' });
             }
             if (!text) {
-                return res.status(400).json({ success: false, error: 'Mensaje vacio' });
+                return res.status(400).json({ success: false, error: 'Missatge buit' });
             }
             if (text.length > 1000) {
-                return res.status(400).json({ success: false, error: 'Mensaje demasiado largo (max 1000)' });
+                return res.status(400).json({ success: false, error: 'Missatge massa llarg (màxim 1000)' });
             }
 
             const fromUser = await db.collection('users').findOne({ _id: new ObjectId(String(fromUserId)) });
             if (!fromUser) {
-                return res.status(404).json({ success: false, error: 'Usuario emisor no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari emissor no trobat' });
             }
 
             const toUser = await findUserByUsernameCI(db, toName);
             if (!toUser) {
-                return res.status(404).json({ success: false, error: 'Usuario destino no encontrado' });
+                return res.status(404).json({ success: false, error: 'Usuari destinatari no trobat' });
             }
 
             const friendsSet = toUsernameSet(fromUser.friends);
             if (!friendsSet.has(String(toUser.username).toLowerCase())) {
-                return res.status(403).json({ success: false, error: 'Solo puedes chatear con aliados' });
+                return res.status(403).json({ success: false, error: 'Només pots xatejar amb aliats' });
             }
 
             await ensureChatIndexes(db);
@@ -598,7 +663,7 @@ class SocialController {
             });
         } catch (error) {
             console.error('Error send chat:', error);
-            return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+            return res.status(500).json({ success: false, error: 'Error intern del servidor' });
         }
     }
 }

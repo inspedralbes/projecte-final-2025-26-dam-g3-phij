@@ -24,6 +24,7 @@ class User {
             verificationCodeHash: userData.verificationCodeHash || null,
             verificationCodeExpiresAt: userData.verificationCodeExpiresAt || null,
             verificationAttempts: userData.verificationAttempts || 0,
+            verificationLastSentAt: userData.verificationLastSentAt || new Date(),
             createdAt: new Date(),
             character: userData.character || null,
             profile: {
@@ -49,7 +50,8 @@ class User {
                 $set: {
                     verificationCodeHash,
                     verificationCodeExpiresAt,
-                    verificationAttempts: 0
+                    verificationAttempts: 0,
+                    verificationLastSentAt: new Date()
                 }
             }
         );
