@@ -1,4 +1,5 @@
 const { getDB } = require('../config/db');
+const { randomUUID } = require('crypto');
 const { ObjectId } = require('mongodb');
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
@@ -9,6 +10,8 @@ const DAY_PHASES = ['mañana', 'tarde', 'noche'];
 const DEFAULT_DAY_LIMIT_FALLBACK = MIN_DAY_LIMIT;
 const MAX_SYNC_OPTIONS = 6;
 const NARRATIVE_SETTINGS_CACHE_TTL_MS = 30000;
+const STREAM_TIMEOUT_MS = 80000;
+const STREAM_LOG_PREVIEW_LIMIT = 360;
 
 const DEFAULT_SYSTEM_PROMPT = `Eres el narrador principal de "Valkrypt", un RPG de fantasía oscura.
 Reglas globales:
@@ -90,9 +93,9 @@ function writeEventToResponse(rawEvent, res) {
     try {
         const payload = JSON.parse(lines);
         const text = extractTextFromEvent(payload);
-        if (text) { res.write(text); return text.length; }
+        if (text) { res.write(text); return text; }
     } catch (e) {}
-    return 0;
+    return '';
 }
 
 function normalizeHeroEffects(rawEffects) {
@@ -454,6 +457,116 @@ function normalizeRequestId(value) {
     return id ? id.slice(0, 96) : '';
 }
 
+function generateStreamRequestId() {
+    return `stream_${randomUUID()}`;
+}
+
+function truncateText(text, max = STREAM_LOG_PREVIEW_LIMIT) {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return '';
+    return normalized.length > max ? `${normalized.slice(0, max)}...` : normalized;
+}
+
+function logNarratorStream(level, message, meta = {}) {
+    const logger = typeof console[level] === 'function' ? console[level].bind(console) : console.log.bind(console);
+    logger(`[Narrative.stream] ${message}`, meta);
+}
+
+function buildStreamErrorPayload({ error, code, requestId, retryable = false }) {
+    return {
+        error,
+        code,
+        requestId,
+        retryable
+    };
+}
+
+function respondStreamError(res, statusCode, payload) {
+    if (!res.headersSent) {
+        return res.status(statusCode).json(payload);
+    }
+    if (!res.writableEnded) {
+        res.end();
+    }
+    return null;
+}
+
+function classifyGeminiHttpFailure(statusCode) {
+    if (statusCode === 429) {
+        return {
+            code: 'gemini_rate_limited',
+            retryable: true,
+            clientStatus: 503,
+            message: 'Gemini limitó temporalmente la generación de narración.'
+        };
+    }
+    if (statusCode >= 500) {
+        return {
+            code: 'gemini_http_error',
+            retryable: true,
+            clientStatus: 502,
+            message: `Gemini devolvió un error ${statusCode}.`
+        };
+    }
+    if (statusCode === 401 || statusCode === 403) {
+        return {
+            code: 'gemini_auth_error',
+            retryable: false,
+            clientStatus: 502,
+            message: `Gemini rechazó la autenticación (${statusCode}).`
+        };
+    }
+    return {
+        code: 'gemini_http_error',
+        retryable: false,
+        clientStatus: 502,
+        message: `Gemini rechazó la solicitud (${statusCode}).`
+    };
+}
+
+function classifyStreamException(error, abortReason = '') {
+    if (abortReason === 'client_abort') {
+        return {
+            code: 'client_abort',
+            retryable: true,
+            clientStatus: 499,
+            message: 'El cliente cerró la conexión del narrador.'
+        };
+    }
+    if (abortReason === 'stream_timeout') {
+        return {
+            code: 'stream_timeout',
+            retryable: true,
+            clientStatus: 504,
+            message: 'La generación del narrador excedió el tiempo máximo.'
+        };
+    }
+
+    const message = String(error?.message || error || '');
+    if (error?.name === 'AbortError') {
+        return {
+            code: 'stream_timeout',
+            retryable: true,
+            clientStatus: 504,
+            message: 'El flujo del narrador fue abortado por tiempo de espera.'
+        };
+    }
+    if (/socket hang up|ECONNRESET|network|fetch failed/i.test(message)) {
+        return {
+            code: 'stream_read_error',
+            retryable: true,
+            clientStatus: 502,
+            message: 'Se perdió la conexión con el flujo de narración.'
+        };
+    }
+    return {
+        code: 'internal_stream_error',
+        retryable: false,
+        clientStatus: 500,
+        message: 'Fallo interno al generar la narración.'
+    };
+}
+
 function buildOptimisticTurnFilter(userObjectId, currentSave, currentTurn) {
     const base = { userId: userObjectId };
     if (currentSave?.turn === undefined || currentSave?.turn === null) {
@@ -515,12 +628,12 @@ class NarrativeController {
             const narrativeSettings = await getNarrativeSettings(db);
             const { campaignId } = req.params;
             if (!campaignId) {
-                return res.status(400).json({ error: 'campaignId requerido' });
+                return res.status(400).json({ error: 'campaignId obligatori' });
             }
             const campaign = await findCampaignByAnyId(db, campaignId);
 
             if (!campaign) {
-                return res.status(404).json({ error: 'Campaña no encontrada' });
+                return res.status(404).json({ error: 'Campanya no trobada' });
             }
 
             return res.json(normalizeCampaign(campaign, narrativeSettings));
@@ -533,9 +646,9 @@ class NarrativeController {
         try {
             const db = getDB();
             const { userId } = req.params;
-            if (!userId || userId === 'undefined') return res.status(400).json({ error: "ID no válido" });
+            if (!userId || userId === 'undefined') return res.status(400).json({ error: "ID no vàlid" });
             const save = await db.collection('saves').findOne({ userId: new ObjectId(userId) });
-            if (!save) return res.status(404).json({ error: "No save found" });
+            if (!save) return res.status(404).json({ error: "No s'ha trobat la partida" });
             res.json(enrichSaveState(save));
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -547,7 +660,7 @@ class NarrativeController {
             const db = getDB();
             const { userId } = req.params;
             if (!userId || userId === 'undefined' || !ObjectId.isValid(userId)) {
-                return res.status(400).json({ error: "ID no válido" });
+                return res.status(400).json({ error: "ID no vàlid" });
             }
 
             const saves = await db
@@ -568,10 +681,10 @@ class NarrativeController {
             const { userId, saveId } = req.params;
 
             if (!userId || !ObjectId.isValid(userId)) {
-                return res.status(400).json({ error: "ID de usuario no válido" });
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
             }
             if (!saveId || !ObjectId.isValid(saveId)) {
-                return res.status(400).json({ error: "ID de partida no válido" });
+                return res.status(400).json({ error: "ID de partida no vàlid" });
             }
 
             const deleteResult = await db.collection('saves').deleteOne({
@@ -580,7 +693,7 @@ class NarrativeController {
             });
 
             if (deleteResult.deletedCount === 0) {
-                return res.status(404).json({ error: "Partida no encontrada" });
+                return res.status(404).json({ error: "Partida no trobada" });
             }
 
             return res.json({ success: true });
@@ -595,7 +708,7 @@ class NarrativeController {
             const narrativeSettings = await getNarrativeSettings(db);
             const { userId, action } = req.body;
             if (!userId || !ObjectId.isValid(userId)) {
-                return res.status(400).json({ error: "ID de usuario no válido" });
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
             }
             const safeAction = action && typeof action === 'object' ? action : { type: 'action', label: 'Acción' };
             const userObjectId = new ObjectId(userId);
@@ -656,7 +769,7 @@ class NarrativeController {
                 const syncData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
                 const syncKey = normalizeRequestId(syncData.requestId || safeAction.requestId || safeAction.actionId);
                 if (!syncKey) {
-                    return res.status(400).json({ error: "requestId requerido para narration_sync" });
+                    return res.status(400).json({ error: "requestId obligatori per narration_sync" });
                 }
 
                 if (currentSave.lastNarrationSyncKey === syncKey) {
@@ -703,7 +816,7 @@ class NarrativeController {
                         return res.json(buildActionResponse(latestSave, { duplicate: true }));
                     }
                     return res.status(409).json({
-                        error: "Estado actualizado por otra acción. Reintenta sincronizar narración.",
+                        error: "Estat actualitzat per una altra acció. Torna a sincronitzar la narració.",
                         retryable: true
                     });
                 }
@@ -716,7 +829,7 @@ class NarrativeController {
                 const syncData = safeAction.data && typeof safeAction.data === 'object' ? safeAction.data : {};
                 const incomingParty = Array.isArray(syncData.party) ? syncData.party : [];
                 if (incomingParty.length === 0) {
-                    return res.status(400).json({ error: "party requerida para party_sync" });
+                    return res.status(400).json({ error: "party obligatòria per party_sync" });
                 }
 
                 const syncedParty = incomingParty.map(normalizeHero).filter(hero => hero.id || hero.name);
@@ -748,7 +861,7 @@ class NarrativeController {
 
             const requestId = normalizeRequestId(safeAction.requestId || safeAction.actionId || safeAction.meta?.requestId);
             if (!requestId) {
-                return res.status(400).json({ error: "requestId requerido para procesar acción" });
+                return res.status(400).json({ error: "requestId obligatori per processar acció" });
             }
 
             if (currentSave.lastProcessedActionKey === requestId) {
@@ -804,7 +917,7 @@ class NarrativeController {
                     return res.json(buildActionResponse(latestSave, { duplicate: true }));
                 }
                 return res.status(409).json({
-                    error: "Estado de partida cambiado por otra acción. Reintenta.",
+                    error: "L'estat de la partida ha canviat per una altra acció. Torna-ho a intentar.",
                     retryable: true
                 });
             }
@@ -821,9 +934,18 @@ class NarrativeController {
     }
 
     static async stream(req, res) {
-        const { playerAction, storyHistory, worldSeed, forceCombat } = req.body || {};
+        const {
+            playerAction,
+            storyHistory,
+            worldSeed,
+            forceCombat,
+            requestId: rawRequestId,
+            origin: rawOrigin
+        } = req.body || {};
         const apiKey = process.env.GEMINI_API_KEY;
         const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+        const requestId = normalizeRequestId(rawRequestId) || generateStreamRequestId();
+        const origin = truncateText(rawOrigin || 'action', 48) || 'action';
 
         const history = normalizeHistory(storyHistory);
         const mustForceCombat = toBoolean(forceCombat);
@@ -832,22 +954,78 @@ class NarrativeController {
             : '';
         const playerPrompt = `${worldSeed ? `Contexto: ${worldSeed}\n` : ''}Acción del jugador: ${playerAction}${combatDirective}`.trim();
         history.push({ role: 'user', parts: [{ text: playerPrompt }] });
+        res.setHeader('X-Request-Id', requestId);
 
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        
+        const startedAt = Date.now();
+        const diagnostics = {
+            requestId,
+            origin,
+            model,
+            forceCombat: mustForceCombat,
+            historyLength: history.length,
+            actionPreview: truncateText(playerAction, 140),
+            streamStarted: false,
+            chunksForwarded: 0,
+            bytesForwarded: 0,
+            firstChunkAt: 0,
+            abortReason: '',
+            upstreamStatus: null
+        };
+
+        logNarratorStream('info', 'stream_start', {
+            requestId,
+            origin,
+            model,
+            forceCombat: mustForceCombat,
+            historyLength: history.length,
+            actionPreview: diagnostics.actionPreview
+        });
+
+        const upstreamController = new AbortController();
+        let streamCompleted = false;
+        const timeoutId = setTimeout(() => {
+            diagnostics.abortReason = 'stream_timeout';
+            if (!upstreamController.signal.aborted) {
+                upstreamController.abort(new Error('stream_timeout'));
+            }
+        }, STREAM_TIMEOUT_MS);
+
+        const abortFromClient = () => {
+            if (streamCompleted || upstreamController.signal.aborted) return;
+            diagnostics.abortReason = 'client_abort';
+            upstreamController.abort(new Error('client_abort'));
+        };
+
+        req.on('aborted', abortFromClient);
+        res.on('close', abortFromClient);
+
         try {
             if (!apiKey) {
-                return res.status(500).json({ error: 'GEMINI_API_KEY no configurada' });
+                logNarratorStream('error', 'stream_config_error', {
+                    requestId,
+                    origin,
+                    code: 'gemini_missing_api_key'
+                });
+                return respondStreamError(res, 500, buildStreamErrorPayload({
+                    error: 'GEMINI_API_KEY no configurada',
+                    code: 'gemini_missing_api_key',
+                    requestId,
+                    retryable: false
+                }));
             }
 
             const db = getDB();
             const narrativeSettings = await getNarrativeSettings(db);
-            const systemPrompt = buildRuntimeSystemPrompt(narrativeSettings.systemPrompt, {
+            let systemPrompt = buildRuntimeSystemPrompt(narrativeSettings.systemPrompt, {
                 forceCombat: mustForceCombat
             });
+            if (origin === 'combat_resolution') {
+                systemPrompt = `${systemPrompt}\n- Si el contexto viene de una resolución de combate, describe el aftermath inmediato, reubica al grupo en el entorno y ofrece continuidad narrativa clara antes de abrir nuevas decisiones.`;
+            }
             const response = await fetch(`${GEMINI_API_BASE_URL}/models/${model}:streamGenerateContent?alt=sse`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+                signal: upstreamController.signal,
                 body: JSON.stringify({
                     systemInstruction: { parts: [{ text: systemPrompt }] },
                     contents: history,
@@ -857,15 +1035,43 @@ class NarrativeController {
                     }
                 })
             });
+            diagnostics.upstreamStatus = response.status;
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                return res.status(502).json({ error: `Gemini error ${response.status}: ${errorBody}` });
+                const failure = classifyGeminiHttpFailure(response.status);
+                logNarratorStream('error', 'stream_upstream_error', {
+                    requestId,
+                    origin,
+                    code: failure.code,
+                    retryable: failure.retryable,
+                    upstreamStatus: response.status,
+                    upstreamBodyPreview: truncateText(errorBody)
+                });
+                return respondStreamError(res, failure.clientStatus, buildStreamErrorPayload({
+                    error: failure.message,
+                    code: failure.code,
+                    requestId,
+                    retryable: failure.retryable
+                }));
             }
             if (!response.body) {
-                return res.status(502).json({ error: 'Gemini no devolvió stream' });
+                logNarratorStream('error', 'stream_empty_body', {
+                    requestId,
+                    origin,
+                    code: 'gemini_empty_stream',
+                    upstreamStatus: response.status
+                });
+                return respondStreamError(res, 502, buildStreamErrorPayload({
+                    error: 'Gemini no ha retornado un flujo de narración.',
+                    code: 'gemini_empty_stream',
+                    requestId,
+                    retryable: true
+                }));
             }
 
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            diagnostics.streamStarted = true;
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -876,19 +1082,74 @@ class NarrativeController {
                 buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
                 let sep = buffer.indexOf('\n\n');
                 while (sep !== -1) {
-                    writeEventToResponse(buffer.slice(0, sep), res);
+                    const streamedText = writeEventToResponse(buffer.slice(0, sep), res);
+                    if (streamedText) {
+                        if (!diagnostics.firstChunkAt) diagnostics.firstChunkAt = Date.now();
+                        diagnostics.chunksForwarded += 1;
+                        diagnostics.bytesForwarded += Buffer.byteLength(streamedText, 'utf8');
+                    }
                     buffer = buffer.slice(sep + 2);
                     sep = buffer.indexOf('\n\n');
                 }
             }
 
             if (buffer.trim()) {
-                writeEventToResponse(buffer, res);
+                const streamedText = writeEventToResponse(buffer, res);
+                if (streamedText) {
+                    if (!diagnostics.firstChunkAt) diagnostics.firstChunkAt = Date.now();
+                    diagnostics.chunksForwarded += 1;
+                    diagnostics.bytesForwarded += Buffer.byteLength(streamedText, 'utf8');
+                }
             }
+            streamCompleted = true;
+            clearTimeout(timeoutId);
+            req.off('aborted', abortFromClient);
+            res.off('close', abortFromClient);
+            logNarratorStream('info', 'stream_complete', {
+                requestId,
+                origin,
+                durationMs: Date.now() - startedAt,
+                timeToFirstChunkMs: diagnostics.firstChunkAt ? diagnostics.firstChunkAt - startedAt : null,
+                chunksForwarded: diagnostics.chunksForwarded,
+                bytesForwarded: diagnostics.bytesForwarded,
+                upstreamStatus: diagnostics.upstreamStatus
+            });
             res.end();
         } catch (err) {
-            if (!res.headersSent) res.status(500).json({ error: err.message });
-            else res.end();
+            clearTimeout(timeoutId);
+            req.off('aborted', abortFromClient);
+            res.off('close', abortFromClient);
+            const failure = classifyStreamException(err, diagnostics.abortReason);
+            logNarratorStream(
+                failure.code === 'client_abort' ? 'warn' : 'error',
+                'stream_failed',
+                {
+                    requestId,
+                    origin,
+                    code: failure.code,
+                    retryable: failure.retryable,
+                    durationMs: Date.now() - startedAt,
+                    streamStarted: diagnostics.streamStarted,
+                    chunksForwarded: diagnostics.chunksForwarded,
+                    bytesForwarded: diagnostics.bytesForwarded,
+                    upstreamStatus: diagnostics.upstreamStatus,
+                    abortReason: diagnostics.abortReason || null,
+                    errorName: err?.name || 'Error',
+                    errorMessage: truncateText(err?.message || err)
+                }
+            );
+
+            if (failure.code === 'client_abort') {
+                if (!res.writableEnded) res.end();
+                return;
+            }
+
+            respondStreamError(res, failure.clientStatus, buildStreamErrorPayload({
+                error: failure.message,
+                code: failure.code,
+                requestId,
+                retryable: failure.retryable
+            }));
         }
     }
 }

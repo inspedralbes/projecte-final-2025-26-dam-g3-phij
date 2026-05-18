@@ -208,8 +208,8 @@ class RoomController {
                 room: { ...room, players: normalizePlayers(room.players) }
             });
         } catch (error) {
-            console.error('Error creating room:', error);
-            return res.status(500).json({ success: false, message: 'Error creating room', error: error.message });
+            console.error('Error en crear sala:', error);
+            return res.status(500).json({ success: false, message: 'Error en crear sala', error: error.message });
         }
     }
     static async getActiveRooms(req, res) {
@@ -220,19 +220,19 @@ class RoomController {
                 rooms: rooms.map((room) => ({ ...room, players: normalizePlayers(room.players) }))
             });
         } catch (error) {
-            console.error('Error fetching rooms:', error);
-            return res.status(500).json({ success: false, message: 'Error fetching rooms', error: error.message });
+            console.error('Error en obtenir sales:', error);
+            return res.status(500).json({ success: false, message: 'Error en obtenir sales', error: error.message });
         }
     }
     static async getRoomDetails(req, res) {
         try {
             const { roomCode } = req.params;
             if (!roomCode) {
-                return res.status(400).json({ success: false, message: 'Room code is required' });
+                return res.status(400).json({ success: false, message: 'Cal el codi de sala' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             return res.status(200).json({
                 success: true,
@@ -240,8 +240,8 @@ class RoomController {
                 roleCatalog: ROLE_CATALOG
             });
         } catch (error) {
-            console.error('Error fetching room details:', error);
-            return res.status(500).json({ success: false, message: 'Error fetching room details', error: error.message });
+            console.error('Error en obtenir detalls de la sala:', error);
+            return res.status(500).json({ success: false, message: 'Error en obtenir detalls de la sala', error: error.message });
         }
     }
     static async joinRoom(req, res) {
@@ -249,11 +249,11 @@ class RoomController {
             const { roomCode, userId, username, character } = req.body;
             const normalizedUserId = normalizeId(userId);
             if (!roomCode || !normalizedUserId || !username) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId, username' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId, username' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             const alreadyJoined = room.players.some((player) => normalizeId(player.userId) === normalizedUserId);
             if (alreadyJoined) {
@@ -264,17 +264,17 @@ class RoomController {
                 });
             }
             if (room.players.length >= room.maxPlayers) {
-                return res.status(400).json({ success: false, message: 'Room is full' });
+                return res.status(400).json({ success: false, message: 'La sala és plena' });
             }
             if (room.status !== 'waiting') {
-                return res.status(400).json({ success: false, message: 'Room is not accepting new players' });
+                return res.status(400).json({ success: false, message: 'La sala no accepta jugadors nous' });
             }
             await Room.addPlayer(roomCode, normalizedUserId, String(username).trim(), character || null);
             const updatedRoom = await loadRoom(roomCode);
-            return res.status(200).json({ success: true, message: 'Joined room successfully', room: updatedRoom });
+            return res.status(200).json({ success: true, message: "S'ha entrat a la sala correctament", room: updatedRoom });
         } catch (error) {
-            console.error('Error joining room:', error);
-            return res.status(500).json({ success: false, message: 'Error joining room', error: error.message });
+            console.error('Error en unir-se a la sala:', error);
+            return res.status(500).json({ success: false, message: 'Error en unir-se a la sala', error: error.message });
         }
     }
     static async leaveRoom(req, res) {
@@ -282,20 +282,20 @@ class RoomController {
             const { roomCode, userId } = req.body;
             const normalizedUserId = normalizeId(userId);
             if (!roomCode || !normalizedUserId) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             if (isHost(room, normalizedUserId)) {
                 await Room.delete(roomCode);
-                return res.status(200).json({ success: true, message: 'Room deleted (host left)' });
+                return res.status(200).json({ success: true, message: 'Sala eliminada (el host ha marxat)' });
             }
             await Room.removePlayer(roomCode, normalizedUserId);
             const updatedRoom = await loadRoom(roomCode);
             if (!updatedRoom) {
-                return res.status(200).json({ success: true, message: 'Left room successfully' });
+                return res.status(200).json({ success: true, message: "S'ha sortit de la sala correctament" });
             }
             const gameState = updatedRoom.gameState && typeof updatedRoom.gameState === 'object'
                 ? { ...updatedRoom.gameState }
@@ -330,7 +330,7 @@ class RoomController {
                 const log = Array.isArray(nextState.log) ? [...nextState.log] : [];
                 log.push({
                     type: 'system',
-                    message: `Un miembro ha abandonado la sala (${normalizedUserId}).`,
+                    message: `Un membre ha abandonat la sala (${normalizedUserId}).`,
                     at: new Date()
                 });
                 nextState.log = log.slice(-120);
@@ -339,10 +339,10 @@ class RoomController {
                     { $set: { gameState: nextState, updatedAt: new Date() } }
                 );
             }
-            return res.status(200).json({ success: true, message: 'Left room successfully' });
+            return res.status(200).json({ success: true, message: "S'ha sortit de la sala correctament" });
         } catch (error) {
-            console.error('Error leaving room:', error);
-            return res.status(500).json({ success: false, message: 'Error leaving room', error: error.message });
+            console.error('Error en sortir de la sala:', error);
+            return res.status(500).json({ success: false, message: 'Error en sortir de la sala', error: error.message });
         }
     }
     static async startGame(req, res) {
@@ -350,26 +350,26 @@ class RoomController {
             const { roomCode, userId } = req.body;
             const normalizedUserId = normalizeId(userId);
             if (!roomCode || !normalizedUserId) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             if (!isHost(room, normalizedUserId)) {
-                return res.status(403).json({ success: false, message: 'Only host can start the game' });
+                return res.status(403).json({ success: false, message: 'Només el host pot iniciar la partida' });
             }
             if (room.players.length < MIN_PLAYERS_TO_START) {
                 return res.status(400).json({
                     success: false,
-                    message: `Se necesitan al menos ${MIN_PLAYERS_TO_START} jugadores para iniciar la partida de grupo.`
+                    message: `Calen com a mínim ${MIN_PLAYERS_TO_START} jugadors per iniciar la partida de grup.`
                 });
             }
             const withoutCharacter = room.players.filter((player) => !player.character);
             if (withoutCharacter.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `Estos jugadores deben elegir personaje antes de iniciar: ${withoutCharacter.map((player) => player.username).join(', ')}`
+                    message: `Aquests jugadors han de triar personatge abans d'iniciar: ${withoutCharacter.map((player) => player.username).join(', ')}`
                 });
             }
             const resetPlayers = room.players.map((player) => ({ ...player, role: null }));
@@ -388,13 +388,13 @@ class RoomController {
             const updatedRoom = await loadRoom(roomCode);
             return res.status(200).json({
                 success: true,
-                message: 'Partida de grupo iniciada. Asignad roles para comenzar turnos.',
+                message: 'Partida de grup iniciada. Assigneu rols per començar torns.',
                 room: updatedRoom,
                 roleCatalog: ROLE_CATALOG
             });
         } catch (error) {
-            console.error('Error starting game:', error);
-            return res.status(500).json({ success: false, message: 'Error starting game', error: error.message });
+            console.error('Error en iniciar la partida:', error);
+            return res.status(500).json({ success: false, message: 'Error en iniciar la partida', error: error.message });
         }
     }
     static async setCharacter(req, res) {
@@ -403,15 +403,25 @@ class RoomController {
             const normalizedUserId = normalizeId(userId);
             const normalizedCharacter = String(character || '').trim();
             if (!roomCode || !normalizedUserId || !normalizedCharacter) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId, character' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId, character' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             const player = findPlayer(room.players, normalizedUserId);
             if (!player) {
-                return res.status(404).json({ success: false, message: 'Player not found in room' });
+                return res.status(404).json({ success: false, message: 'Jugador no trobat a la sala' });
+            }
+            const duplicateOwner = room.players.find((entry) =>
+                normalizeId(entry.userId) !== normalizedUserId &&
+                String(entry.character || '').trim().toLowerCase() === normalizedCharacter.toLowerCase()
+            );
+            if (duplicateOwner) {
+                return res.status(409).json({
+                    success: false,
+                    message: `El personatge ${normalizedCharacter} ja està ocupat per ${duplicateOwner.username}.`
+                });
             }
             const players = room.players.map((entry) => {
                 if (normalizeId(entry.userId) !== normalizedUserId) return entry;
@@ -428,10 +438,10 @@ class RoomController {
                 );
             }
             const updatedRoom = await loadRoom(roomCode);
-            return res.status(200).json({ success: true, message: 'Personaje asignado', room: updatedRoom });
+            return res.status(200).json({ success: true, message: 'Personatge assignat', room: updatedRoom });
         } catch (error) {
-            console.error('Error setting character:', error);
-            return res.status(500).json({ success: false, message: 'Error setting character', error: error.message });
+            console.error('Error en assignar personatge:', error);
+            return res.status(500).json({ success: false, message: 'Error en assignar personatge', error: error.message });
         }
     }
     static async assignRole(req, res) {
@@ -440,37 +450,37 @@ class RoomController {
             const normalizedUserId = normalizeId(userId);
             const normalizedRoleId = String(roleId || '').trim().toLowerCase();
             if (!roomCode || !normalizedUserId || !normalizedRoleId) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId, roleId' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId, roleId' });
             }
             const role = getRoleById(normalizedRoleId);
             if (!role) {
-                return res.status(400).json({ success: false, message: 'Rol no valido' });
+                return res.status(400).json({ success: false, message: 'Rol no vàlid' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             if (room.status !== 'in-progress') {
-                return res.status(400).json({ success: false, message: 'La partida no esta iniciada' });
+                return res.status(400).json({ success: false, message: 'La partida no està iniciada' });
             }
             const gameState = room.gameState && typeof room.gameState === 'object'
                 ? { ...room.gameState }
                 : roleSelectionState(room.players);
             if (gameState.phase !== 'role-selection') {
-                return res.status(409).json({ success: false, message: 'La fase de roles ya ha terminado' });
+                return res.status(409).json({ success: false, message: 'La fase de rols ja ha acabat' });
             }
             const player = findPlayer(room.players, normalizedUserId);
             if (!player) {
-                return res.status(404).json({ success: false, message: 'Player not found in room' });
+                return res.status(404).json({ success: false, message: 'Jugador no trobat a la sala' });
             }
             if (!player.character) {
-                return res.status(400).json({ success: false, message: 'Debes elegir personaje antes de seleccionar rol' });
+                return res.status(400).json({ success: false, message: 'Has de triar personatge abans de seleccionar rol' });
             }
             const roleAssignments = { ...(gameState.roleAssignments || {}) };
             const ownerOfRole = Object.entries(roleAssignments)
                 .find(([ownerId, assignedRoleId]) => assignedRoleId === normalizedRoleId && normalizeId(ownerId) !== normalizedUserId);
             if (ownerOfRole) {
-                return res.status(409).json({ success: false, message: `El rol ${role.label} ya esta asignado.` });
+                return res.status(409).json({ success: false, message: `El rol ${role.label} ja està assignat.` });
             }
             roleAssignments[normalizedUserId] = normalizedRoleId;
             const players = room.players.map((entry) => {
@@ -518,7 +528,7 @@ class RoomController {
                 nextState.metrics = normalizeMetrics(nextState.metrics);
                 nextState.log = [...nextState.log, {
                     type: 'system',
-                    message: `Todos los roles estan listos. Comienza el turno de ${currentTurnPlayer?.username || 'la escuadra'}.`,
+                    message: `Tots els rols estan a punt. Comença el torn de ${currentTurnPlayer?.username || "l'esquadra"}.`,
                     at: new Date()
                 }].slice(-120);
             }
@@ -535,7 +545,7 @@ class RoomController {
             const updatedRoom = await loadRoom(roomCode);
             return res.status(200).json({
                 success: true,
-                message: 'Rol asignado correctamente',
+                message: 'Rol assignat correctament',
                 room: updatedRoom,
                 roleCatalog: ROLE_CATALOG
             });
@@ -550,15 +560,15 @@ class RoomController {
             const normalizedUserId = normalizeId(userId);
             const normalizedChoiceId = String(choiceId || '').trim().toLowerCase();
             if (!roomCode || !normalizedUserId || !normalizedChoiceId) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId, choiceId' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId, choiceId' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             const gameState = room.gameState && typeof room.gameState === 'object' ? { ...room.gameState } : null;
             if (!gameState || gameState.phase !== 'active') {
-                return res.status(409).json({ success: false, message: 'La partida no esta en fase de turnos activa' });
+                return res.status(409).json({ success: false, message: 'La partida no està en fase de torns activa' });
             }
             const currentTurnUserId = normalizeId(gameState.currentTurnUserId);
             if (currentTurnUserId !== normalizedUserId) {
@@ -570,12 +580,12 @@ class RoomController {
             }
             const actingPlayer = findPlayer(room.players, normalizedUserId);
             if (!actingPlayer) {
-                return res.status(404).json({ success: false, message: 'Player not found in room' });
+                return res.status(404).json({ success: false, message: 'Jugador no trobat a la sala' });
             }
             const currentScene = sceneAt(gameState.sceneIndex || 0);
             const selectedChoice = (currentScene.choices || []).find((choice) => choice.id === normalizedChoiceId);
             if (!selectedChoice) {
-                return res.status(400).json({ success: false, message: 'La eleccion no existe para esta escena' });
+                return res.status(400).json({ success: false, message: "L'elecció no existeix per a aquesta escena" });
             }
             const nextMetrics = applyChoiceMetrics(gameState.metrics, selectedChoice.effects);
             const log = Array.isArray(gameState.log) ? [...gameState.log] : [];
@@ -593,7 +603,7 @@ class RoomController {
             });
             const turnOrder = Array.isArray(gameState.turnOrder) ? gameState.turnOrder.map((id) => normalizeId(id)).filter(Boolean) : [];
             if (turnOrder.length === 0) {
-                return res.status(409).json({ success: false, message: 'No hay orden de turnos configurado' });
+                return res.status(409).json({ success: false, message: 'No hi ha ordre de torns configurat' });
             }
             const currentTurnIndex = Number.isFinite(Number(gameState.currentTurnIndex))
                 ? Number(gameState.currentTurnIndex)
@@ -620,12 +630,12 @@ class RoomController {
             };
             if (progressWin || threatFail || dayLimitReached) {
                 const reason = progressWin
-                    ? 'objetivo cumplido'
-                    : (threatFail ? 'amenaza critica' : 'limite de dias alcanzado');
+                    ? 'objectiu complert'
+                    : (threatFail ? 'amenaça crítica' : 'límit de dies assolit');
                 nextState.phase = 'completed';
                 nextState.currentTurnUserId = '';
                 nextState.choices = [];
-                nextState.sceneTitle = 'Capitulo finalizado';
+                nextState.sceneTitle = 'Capítol finalitzat';
                 nextState.sceneText = summarizeRun(nextMetrics, reason);
                 nextState.log = [...log, {
                     type: 'system',
@@ -645,7 +655,7 @@ class RoomController {
                 nextState.currentTurnUserId = nextTurnUserId;
                 nextState.log = [...log, {
                     type: 'system',
-                    message: `Turno de ${nextTurnPlayer?.username || 'la escuadra'} en ${nextScene.title}.`,
+                    message: `Torn de ${nextTurnPlayer?.username || "l'esquadra"} a ${nextScene.title}.`,
                     at: new Date()
                 }].slice(-120);
             }
@@ -665,25 +675,25 @@ class RoomController {
             if (updateResult.modifiedCount === 0) {
                 return res.status(409).json({
                     success: false,
-                    message: 'El turno ya fue procesado por otra accion. Refresca estado.'
+                    message: "El torn ja s'ha processat per una altra acció. Refresca l'estat."
                 });
             }
             const updatedRoom = await loadRoom(roomCode);
             return res.status(200).json({
                 success: true,
-                message: 'Turno procesado',
+                message: 'Torn processat',
                 room: updatedRoom
             });
         } catch (error) {
-            console.error('Error submitting turn choice:', error);
-            return res.status(500).json({ success: false, message: 'Error submitting turn choice', error: error.message });
+            console.error("Error en enviar l'elecció de torn:", error);
+            return res.status(500).json({ success: false, message: "Error en enviar l'elecció de torn", error: error.message });
         }
     }
     static async getPlayerRooms(req, res) {
         try {
             const { userId } = req.params;
             if (!userId) {
-                return res.status(400).json({ success: false, message: 'User ID is required' });
+                return res.status(400).json({ success: false, message: "Cal l'ID d'usuari" });
             }
             const normalizedUserId = normalizeId(userId);
             const rooms = await Room.getPlayerRooms(normalizedUserId);
@@ -692,8 +702,8 @@ class RoomController {
                 rooms: rooms.map((room) => ({ ...room, players: normalizePlayers(room.players) }))
             });
         } catch (error) {
-            console.error('Error fetching player rooms:', error);
-            return res.status(500).json({ success: false, message: 'Error fetching player rooms', error: error.message });
+            console.error('Error en obtenir sales del jugador:', error);
+            return res.status(500).json({ success: false, message: 'Error en obtenir sales del jugador', error: error.message });
         }
     }
     static async deleteRoom(req, res) {
@@ -701,20 +711,20 @@ class RoomController {
             const { roomCode, userId } = req.body;
             const normalizedUserId = normalizeId(userId);
             if (!roomCode || !normalizedUserId) {
-                return res.status(400).json({ success: false, message: 'Missing required fields: roomCode, userId' });
+                return res.status(400).json({ success: false, message: 'Falten camps obligatoris: roomCode, userId' });
             }
             const room = await loadRoom(roomCode);
             if (!room) {
-                return res.status(404).json({ success: false, message: 'Room not found' });
+                return res.status(404).json({ success: false, message: 'Sala no trobada' });
             }
             if (!isHost(room, normalizedUserId)) {
-                return res.status(403).json({ success: false, message: 'Only the host can delete the room' });
+                return res.status(403).json({ success: false, message: 'Només el host pot eliminar la sala' });
             }
             await Room.delete(roomCode);
-            return res.status(200).json({ success: true, message: 'Room deleted successfully' });
+            return res.status(200).json({ success: true, message: 'Sala eliminada correctament' });
         } catch (error) {
-            console.error('Error deleting room:', error);
-            return res.status(500).json({ success: false, message: 'Error deleting room', error: error.message });
+            console.error('Error en eliminar sala:', error);
+            return res.status(500).json({ success: false, message: 'Error en eliminar sala', error: error.message });
         }
     }
 }

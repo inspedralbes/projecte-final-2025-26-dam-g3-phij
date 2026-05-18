@@ -6,10 +6,10 @@ exports.loadProgress = async (req, res) => {
         const db = getDB();
         const { userId } = req.params;
         const save = await db.collection('saves').findOne({ userId: new ObjectId(userId) });
-        if (!save) return res.status(404).json({ error: "No hay partida" });
+        if (!save) return res.status(404).json({ error: "No hi ha partida" });
         res.json(save);
     } catch (error) {
-        res.status(500).json({ error: "Error al cargar de Atlas" });
+        res.status(500).json({ error: "Error en carregar d'Atlas" });
     }
 };
 
@@ -50,6 +50,6 @@ exports.processAction = async (req, res) => {
         res.json(fullUpdate);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Error en el núcleo de Valkrypt" });
+        res.status(500).json({ error: "Error al nucli de Valkrypt" });
     }
 };
