@@ -38,25 +38,11 @@
         </div>
 
         <section class="feature-grid animate__animated animate__fadeInUp animate__delay-2s">
-          <article class="feature-card">
-            <img src="https://api.dicebear.com/8.x/adventurer/svg?seed=valkrypt-knight" alt="Heroi" />
+          <article v-for="feature in featureCards" :key="feature.title" class="feature-card">
+            <img :src="feature.image" :alt="feature.alt" />
             <div>
-              <h3>ESCUADRA TÀCTICA</h3>
-              <p>Forma aliances, assigna rols i executa estratègies cooperatives.</p>
-            </div>
-          </article>
-          <article class="feature-card">
-            <img src="https://robohash.org/valkrypt-beast?set=set2" alt="Bestia" />
-            <div>
-              <h3>AMENAÇA DINÀMICA</h3>
-              <p>Cada partida evoluciona amb riscos i decisions de conseqüències reals.</p>
-            </div>
-          </article>
-          <article class="feature-card">
-            <img src="https://api.dicebear.com/8.x/adventurer/svg?seed=valkrypt-mage" alt="Arcanista" />
-            <div>
-              <h3>PROGRÉS NARRATIU</h3>
-              <p>Construeix la teva crònica en temps real amb el teu equip.</p>
+              <h3>{{ feature.title }}</h3>
+              <p>{{ feature.description }}</p>
             </div>
           </article>
         </section>
@@ -72,10 +58,31 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { valkryptFeatureImages } from '../assets/valkryptAssets';
 
 const router = useRouter();
 const vantaHost = ref(null);
 let vantaEffect = null;
+const featureCards = [
+  {
+    title: 'ESCUADRA TÀCTICA',
+    description: 'Forma aliances, assigna rols i executa estratègies cooperatives.',
+    alt: 'Escuadra tàctica',
+    image: valkryptFeatureImages.tacticalSquad
+  },
+  {
+    title: 'AMENAÇA DINÀMICA',
+    description: 'Cada partida evoluciona amb riscos i decisions de conseqüències reals.',
+    alt: 'Amenaça dinàmica',
+    image: valkryptFeatureImages.dynamicThreat
+  },
+  {
+    title: 'PROGRÉS NARRATIU',
+    description: 'Construeix la teva crònica en temps real amb el teu equip.',
+    alt: 'Progrés narratiu',
+    image: valkryptFeatureImages.narrativeProgress
+  }
+];
 const emberSeeds = [
   { left: 5, duration: 13, delay: 1 },
   { left: 12, duration: 11, delay: 5 },

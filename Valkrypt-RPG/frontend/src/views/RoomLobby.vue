@@ -124,6 +124,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const router = useRouter();
 const API_URL = '/api';
@@ -184,7 +185,7 @@ const fetchRooms = async ({ silent = false } = {}) => {
     }
   } catch (err) {
     console.error('Error fetching rooms:', err);
-    showError('No se pudieron cargar las salas');
+    showError(getApiErrorMessage(err, 'No se pudieron cargar las salas'));
   } finally {
     if (!silent) loadingRooms.value = false;
   }
@@ -211,7 +212,7 @@ const createRoom = async () => {
     }
   } catch (err) {
     console.error('Error creating room:', err);
-    showError(err.response?.data?.message || 'No se pudo crear la sala');
+    showError(getApiErrorMessage(err, 'No se pudo crear la sala'));
   } finally {
     loading.value = false;
   }
@@ -238,7 +239,7 @@ const joinRoom = async (room) => {
     }
   } catch (err) {
     console.error('Error joining room:', err);
-    showError(err.response?.data?.message || 'No se pudo unir a la sala');
+    showError(getApiErrorMessage(err, 'No se pudo unir a la sala'));
   } finally {
     loading.value = false;
   }

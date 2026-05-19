@@ -159,6 +159,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const router = useRouter();
 const userStore = ref({});
@@ -285,7 +286,7 @@ const loadProfile = async () => {
     mergeUserInStorage(data.user || {});
   } catch (error) {
     console.error('Error carregant perfil:', error);
-    errorMsg.value = "No s'ha pogut carregar el perfil des de la base de dades.";
+    errorMsg.value = getApiErrorMessage(error, "No s'ha pogut carregar el perfil des de la base de dades.");
   } finally {
     isLoading.value = false;
   }
@@ -323,7 +324,7 @@ const saveProfile = async () => {
     successMsg.value = 'Perfil actualitzat correctament.';
   } catch (error) {
     console.error('Error actualitzant perfil:', error);
-    errorMsg.value = error.message || "No s'ha pogut desar el perfil.";
+    errorMsg.value = getApiErrorMessage(error, "No s'ha pogut desar el perfil.");
   } finally {
     isSaving.value = false;
   }

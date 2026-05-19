@@ -124,6 +124,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const router = useRouter();
 const adminName = ref('admin');
@@ -137,91 +138,164 @@ const users = ref([]);
 const logs = ref([]);
 
 const withJson = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+const parseJson = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+};
+const toError = async (response, fallback) => {
+  const data = await parseJson(response);
+  const message = response?.apiError?.message || data?.error || fallback;
+  const requestId = response?.requestId || response?.apiError?.requestId || data?.requestId || '';
+  return requestId ? `${message} (ref: ${requestId})` : message;
+};
 
 const goBack = () => router.push('/userpage');
 
 const loadAi = async () => {
-  const res = await fetch('/api/admin/ai-settings');
-  const data = await res.json();
-  const settings = data?.settings || {};
-  ai.model = settings.model || 'gemini-2.0-flash';
-  ai.temperature = settings?.generationConfig?.temperature ?? 0.75;
-  ai.systemPrompt = settings.systemPrompt || '';
+  try {
+    const res = await fetch('/api/admin/ai-settings');
+    const data = await parseJson(res);
+    if (!res.ok) {
+      aiState.value = await toError(res, 'Error carregant settings IA.');
+      return;
+    }
+    const settings = data?.settings || {};
+    ai.model = settings.model || 'gemini-2.0-flash';
+    ai.temperature = settings?.generationConfig?.temperature ?? 0.75;
+    ai.systemPrompt = settings.systemPrompt || '';
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'Error carregant settings IA.');
+  }
 };
 
 const saveAi = async () => {
   aiState.value = 'Desant...';
-  const res = await fetch('/api/admin/ai-settings', withJson('PUT', {
-    model: ai.model,
-    temperature: ai.temperature,
-    systemPrompt: ai.systemPrompt,
-    updatedBy: adminName.value
-  }));
-  aiState.value = res.ok ? 'Configuració desada.' : 'Error desant configuració.';
+  try {
+    const res = await fetch('/api/admin/ai-settings', withJson('PUT', {
+      model: ai.model,
+      temperature: ai.temperature,
+      systemPrompt: ai.systemPrompt,
+      updatedBy: adminName.value
+    }));
+    aiState.value = res.ok ? 'Configuració desada.' : await toError(res, 'Error desant configuració.');
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'Error desant configuració.');
+  }
 };
 
 const testAi = async () => {
   aiState.value = 'Provant...';
-  const res = await fetch('/api/admin/ai-settings/test', withJson('POST', {}));
-  const data = await res.json();
-  aiState.value = res.ok ? `OK (${data?.test?.model || 'model'})` : 'Error de test.';
+  try {
+    const res = await fetch('/api/admin/ai-settings/test', withJson('POST', {}));
+    const data = await parseJson(res);
+    aiState.value = res.ok ? `OK (${data?.test?.model || 'model'})` : await toError(res, 'Error de test.');
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'Error de test.');
+  }
 };
 
 const loadInventory = async (page = 1) => {
-  const res = await fetch(`/api/admin/inventory?page=${page}&pageSize=${inventory.pageSize}&search=${encodeURIComponent(search.value)}`);
-  const data = await res.json();
-  if (!res.ok) {
-    inventoryState.value = data?.error || 'Error carregant inventari.';
-    return;
+  try {
+    const res = await fetch(`/api/admin/inventory?page=${page}&pageSize=${inventory.pageSize}&search=${encodeURIComponent(search.value)}`);
+    const data = await parseJson(res);
+    if (!res.ok) {
+      inventoryState.value = await toError(res, 'Error carregant inventari.');
+      return;
+    }
+    inventory.page = data.page;
+    inventory.pageSize = data.pageSize;
+    inventory.total = data.total;
+    inventory.items = Array.isArray(data.items) ? data.items : [];
+    inventoryState.value = `${inventory.total} items`;
+  } catch (error) {
+    inventoryState.value = getApiErrorMessage(error, 'Error carregant inventari.');
   }
-  inventory.page = data.page;
-  inventory.pageSize = data.pageSize;
-  inventory.total = data.total;
-  inventory.items = Array.isArray(data.items) ? data.items : [];
-  inventoryState.value = `${inventory.total} items`;
 };
 
 const createItem = async () => {
-  const res = await fetch('/api/admin/inventory', withJson('POST', { ...itemForm, updatedBy: adminName.value }));
-  if (!res.ok) {
-    inventoryState.value = 'No s\'ha pogut crear.';
-    return;
+  try {
+    const res = await fetch('/api/admin/inventory', withJson('POST', { ...itemForm, updatedBy: adminName.value }));
+    if (!res.ok) {
+      inventoryState.value = await toError(res, 'No s\'ha pogut crear.');
+      return;
+    }
+    itemForm.name = '';
+    itemForm.quantity = 1;
+    await loadInventory(1);
+  } catch (error) {
+    inventoryState.value = getApiErrorMessage(error, 'No s\'ha pogut crear.');
   }
-  itemForm.name = '';
-  itemForm.quantity = 1;
-  await loadInventory(1);
 };
 
 const updateItem = async (item) => {
-  const res = await fetch(`/api/admin/inventory/${encodeURIComponent(item.id)}`, withJson('PUT', { ...item, updatedBy: adminName.value }));
-  inventoryState.value = res.ok ? 'Item actualitzat.' : 'Error actualitzant item.';
+  try {
+    const res = await fetch(`/api/admin/inventory/${encodeURIComponent(item.id)}`, withJson('PUT', { ...item, updatedBy: adminName.value }));
+    inventoryState.value = res.ok ? 'Item actualitzat.' : await toError(res, 'Error actualitzant item.');
+  } catch (error) {
+    inventoryState.value = getApiErrorMessage(error, 'Error actualitzant item.');
+  }
 };
 
 const deleteItem = async (id) => {
   const ok = window.confirm('Vols eliminar aquest item?');
   if (!ok) return;
-  const res = await fetch(`/api/admin/inventory/${encodeURIComponent(id)}`, withJson('DELETE', { updatedBy: adminName.value }));
-  if (res.ok) await loadInventory(inventory.page);
+  try {
+    const res = await fetch(`/api/admin/inventory/${encodeURIComponent(id)}`, withJson('DELETE', { updatedBy: adminName.value }));
+    if (res.ok) {
+      await loadInventory(inventory.page);
+      return;
+    }
+    inventoryState.value = await toError(res, 'No s\'ha pogut eliminar.');
+  } catch (error) {
+    inventoryState.value = getApiErrorMessage(error, 'No s\'ha pogut eliminar.');
+  }
 };
 
 const loadUsers = async () => {
-  const res = await fetch('/api/admin/users');
-  const data = await res.json();
-  users.value = Array.isArray(data?.users) ? data.users : [];
+  try {
+    const res = await fetch('/api/admin/users');
+    const data = await parseJson(res);
+    if (!res.ok) {
+      aiState.value = await toError(res, 'Error carregant usuaris.');
+      return;
+    }
+    users.value = Array.isArray(data?.users) ? data.users : [];
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'Error carregant usuaris.');
+  }
 };
 
 const toggleBan = async (user) => {
-  const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/suspension`, withJson('PATCH', {
-    suspended: !user.suspended,
-    updatedBy: adminName.value
-  }));
-  if (res.ok) await loadUsers();
+  try {
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/suspension`, withJson('PATCH', {
+      suspended: !user.suspended,
+      updatedBy: adminName.value
+    }));
+    if (res.ok) {
+      await loadUsers();
+      return;
+    }
+    aiState.value = await toError(res, 'No s\'ha pogut actualitzar la suspensió.');
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'No s\'ha pogut actualitzar la suspensió.');
+  }
 };
 
 const loadLogs = async () => {
-  const res = await fetch('/api/admin/logs');
-  const data = await res.json();
-  logs.value = Array.isArray(data?.logs) ? data.logs : [];
+  try {
+    const res = await fetch('/api/admin/logs');
+    const data = await parseJson(res);
+    if (!res.ok) {
+      aiState.value = await toError(res, 'Error carregant logs.');
+      return;
+    }
+    logs.value = Array.isArray(data?.logs) ? data.logs : [];
+  } catch (error) {
+    aiState.value = getApiErrorMessage(error, 'Error carregant logs.');
+  }
 };
 
 const reloadAll = async () => {

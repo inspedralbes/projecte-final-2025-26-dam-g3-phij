@@ -208,6 +208,11 @@ function normalizeHero(rawHero) {
         icon: rawHero?.icon || '⚔️',
         hp: safeHp,
         maxHp: safeMaxHp,
+        level: Number.isFinite(Number(rawHero?.level)) ? Math.max(1, Math.floor(Number(rawHero.level))) : 1,
+        experience: Number.isFinite(Number(rawHero?.experience)) ? Math.max(0, Math.floor(Number(rawHero.experience))) : 0,
+        nextLevelXp: Number.isFinite(Number(rawHero?.nextLevelXp)) ? Math.max(50, Math.floor(Number(rawHero.nextLevelXp))) : 100,
+        magic: Number.isFinite(Number(rawHero?.magic)) ? Math.max(0, Math.floor(Number(rawHero.magic))) : 0,
+        agility: Number.isFinite(Number(rawHero?.agility)) ? Math.max(0, Math.floor(Number(rawHero.agility))) : 0,
         attack: Number.isFinite(heroAttack) ? Math.floor(heroAttack) : 0,
         defense: Number.isFinite(heroDefense) ? Math.floor(heroDefense) : 0,
         archetype: rawHero?.archetype ? String(rawHero.archetype) : '',
@@ -216,6 +221,131 @@ function normalizeHero(rawHero) {
         skills,
         equipment
     };
+}
+
+const MINIGAME_TYPES = ['memory', 'reflex', 'coop_reflex'];
+const COOP_ROOM_CODE_LENGTH = 6;
+
+function getBaseXpByMinigame(type) {
+    if (type === 'memory') return 28;
+    if (type === 'reflex') return 24;
+    if (type === 'coop_reflex') return 32;
+    return 20;
+}
+
+function buildMinigameReward(gameType, score, durationMs) {
+    const safeScore = Math.max(0, Math.floor(Number(score) || 0));
+    const safeDuration = Math.max(1, Math.floor(Number(durationMs) || 1));
+    const baseXp = getBaseXpByMinigame(gameType);
+    const performanceBonus = Math.min(40, Math.floor(safeScore / 8));
+    const speedBonus = Math.min(18, Math.floor(15000 / safeDuration));
+    const xp = Math.max(8, baseXp + performanceBonus + speedBonus);
+
+    const statDelta = {
+        attack: 0,
+        defense: 0,
+        magic: 0,
+        agility: 0,
+        maxHp: 0
+    };
+
+    if (gameType === 'memory') {
+        statDelta.magic = 1 + Math.floor(safeScore / 18);
+        statDelta.agility = Math.floor(safeScore / 40);
+    } else if (gameType === 'reflex') {
+        statDelta.attack = 1 + Math.floor(safeScore / 20);
+        statDelta.agility = 1 + Math.floor(safeScore / 24);
+    } else if (gameType === 'coop_reflex') {
+        statDelta.attack = 1 + Math.floor(safeScore / 24);
+        statDelta.defense = 1 + Math.floor(safeScore / 30);
+        statDelta.agility = 1 + Math.floor(safeScore / 30);
+        statDelta.maxHp = 1 + Math.floor(safeScore / 28);
+    }
+
+    return { xp, statDelta, score: safeScore, durationMs: safeDuration };
+}
+
+function nextLevelXpFor(level) {
+    const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return 100 + ((safeLevel - 1) * 40);
+}
+
+function applyRewardToHero(hero, reward) {
+    const normalizedHero = normalizeHero(hero);
+    const levelUps = [];
+    const beforeLevel = normalizedHero.level;
+    const beforeStats = {
+        attack: normalizedHero.attack,
+        defense: normalizedHero.defense,
+        magic: normalizedHero.magic,
+        agility: normalizedHero.agility,
+        maxHp: normalizedHero.maxHp
+    };
+
+    normalizedHero.experience += reward.xp;
+    normalizedHero.attack += reward.statDelta.attack;
+    normalizedHero.defense += reward.statDelta.defense;
+    normalizedHero.magic += reward.statDelta.magic;
+    normalizedHero.agility += reward.statDelta.agility;
+    normalizedHero.maxHp += reward.statDelta.maxHp;
+    normalizedHero.hp = Math.min(normalizedHero.maxHp, normalizedHero.hp + Math.floor(reward.statDelta.maxHp / 2));
+
+    while (normalizedHero.experience >= normalizedHero.nextLevelXp) {
+        normalizedHero.experience -= normalizedHero.nextLevelXp;
+        const fromLevel = normalizedHero.level;
+        normalizedHero.level += 1;
+        normalizedHero.nextLevelXp = nextLevelXpFor(normalizedHero.level);
+        const gained = {
+            attack: 1,
+            defense: 1,
+            magic: 1,
+            agility: 1,
+            maxHp: 3
+        };
+        normalizedHero.attack += gained.attack;
+        normalizedHero.defense += gained.defense;
+        normalizedHero.magic += gained.magic;
+        normalizedHero.agility += gained.agility;
+        normalizedHero.maxHp += gained.maxHp;
+        normalizedHero.hp = Math.min(normalizedHero.maxHp, normalizedHero.hp + gained.maxHp);
+        levelUps.push({ from: fromLevel, to: normalizedHero.level, gained });
+    }
+
+    return {
+        hero: normalizedHero,
+        summary: {
+            heroId: normalizedHero.id,
+            heroName: normalizedHero.name,
+            xpGained: reward.xp,
+            beforeLevel,
+            afterLevel: normalizedHero.level,
+            beforeStats,
+            afterStats: {
+                attack: normalizedHero.attack,
+                defense: normalizedHero.defense,
+                magic: normalizedHero.magic,
+                agility: normalizedHero.agility,
+                maxHp: normalizedHero.maxHp
+            },
+            levelUps
+        }
+    };
+}
+
+function buildCoopRoomCode() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < COOP_ROOM_CODE_LENGTH; i += 1) {
+        code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return code;
+}
+
+function matchmakingRangeForLevel(level) {
+    const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+    if (safeLevel <= 5) return 2;
+    if (safeLevel <= 12) return 3;
+    return 4;
 }
 
 function toPositiveInt(value, fallback) {
@@ -930,6 +1060,449 @@ class NarrativeController {
             });
         } catch (err) {
             res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async getMinigameProgress(req, res) {
+        try {
+            const db = getDB();
+            const { userId } = req.params;
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+
+            const userObjectId = new ObjectId(userId);
+            const save = await db.collection('saves').findOne({ userId: userObjectId });
+            const progression = await db.collection('minigame_progress').findOne({ userId: userObjectId });
+
+            const party = Array.isArray(save?.party) ? save.party.map(normalizeHero) : [];
+            return res.json({
+                success: true,
+                party,
+                progression: progression?.progression || {
+                    level: 1,
+                    xp: 0,
+                    nextLevelXp: 120,
+                    gamesPlayed: 0,
+                    byType: { memory: 0, reflex: 0, coop_reflex: 0 }
+                },
+                recentRewards: Array.isArray(progression?.recentRewards) ? progression.recentRewards.slice(0, 20) : []
+            });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async getWeeklyMinigameLeaderboard(req, res) {
+        try {
+            const db = getDB();
+            const since = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+            const leaderboard = await db.collection('minigame_progress').aggregate([
+                { $unwind: { path: '$recentRewards', preserveNullAndEmptyArrays: false } },
+                { $match: { 'recentRewards.at': { $gte: since.toISOString() } } },
+                {
+                    $group: {
+                        _id: '$userId',
+                        weeklyXp: { $sum: { $ifNull: ['$recentRewards.xp', 0] } },
+                        gamesPlayed: { $sum: 1 },
+                        bestScore: { $max: { $ifNull: ['$recentRewards.score', 0] } }
+                    }
+                },
+                { $sort: { weeklyXp: -1, bestScore: -1 } },
+                { $limit: 25 }
+            ]).toArray();
+
+            if (leaderboard.length === 0) {
+                return res.json({ success: true, since: since.toISOString(), leaderboard: [] });
+            }
+
+            const userObjectIds = leaderboard
+                .map((entry) => entry._id)
+                .filter((value) => value && ObjectId.isValid(value));
+
+            const users = await db.collection('users')
+                .find({ _id: { $in: userObjectIds } }, { projection: { username: 1, profile: 1 } })
+                .toArray();
+
+            const usersById = new Map(
+                users.map((entry) => [
+                    String(entry._id),
+                    {
+                        username: String(entry?.username || 'Aventurero'),
+                        displayName: String(entry?.profile?.displayName || entry?.username || 'Aventurero')
+                    }
+                ])
+            );
+
+            return res.json({
+                success: true,
+                since: since.toISOString(),
+                leaderboard: leaderboard.map((entry, index) => {
+                    const userData = usersById.get(String(entry._id)) || { username: 'unknown', displayName: 'Aventurero' };
+                    return {
+                        rank: index + 1,
+                        userId: String(entry._id),
+                        username: userData.username,
+                        displayName: userData.displayName,
+                        weeklyXp: Math.max(0, Math.floor(Number(entry.weeklyXp) || 0)),
+                        gamesPlayed: Math.max(0, Math.floor(Number(entry.gamesPlayed) || 0)),
+                        bestScore: Math.max(0, Math.floor(Number(entry.bestScore) || 0))
+                    };
+                })
+            });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async completeMinigame(req, res) {
+        try {
+            const db = getDB();
+            const { userId, gameType, score, durationMs, heroId } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            if (!MINIGAME_TYPES.includes(String(gameType || ''))) {
+                return res.status(400).json({ error: 'Tipus de minijoc no vàlid' });
+            }
+
+            const userObjectId = new ObjectId(userId);
+            const save = await db.collection('saves').findOne({ userId: userObjectId });
+            if (!save) {
+                return res.status(404).json({ error: 'No hay partida activa para aplicar recompensas.' });
+            }
+
+            const reward = buildMinigameReward(String(gameType), score, durationMs);
+            const normalizedParty = Array.isArray(save.party) ? save.party.map(normalizeHero) : [];
+            const targetHeroId = String(heroId || '').trim();
+            const changedHeroes = [];
+
+            const updatedParty = normalizedParty.map((hero, index) => {
+                const isTarget = targetHeroId
+                    ? String(hero.id || '').trim() === targetHeroId
+                    : index === 0;
+                if (!isTarget) return hero;
+                const applied = applyRewardToHero(hero, reward);
+                changedHeroes.push(applied.summary);
+                return applied.hero;
+            });
+
+            await db.collection('saves').updateOne(
+                { userId: userObjectId },
+                {
+                    $set: {
+                        party: updatedParty,
+                        updatedAt: new Date()
+                    },
+                    $push: {
+                        history: {
+                            $each: [{
+                                type: 'minigame',
+                                content: `Entrenamiento ${gameType}: score ${reward.score}, +${reward.xp} XP.`
+                            }],
+                            $slice: -240
+                        }
+                    }
+                }
+            );
+
+            const progressCurrent = await db.collection('minigame_progress').findOne({ userId: userObjectId });
+            const baseProgress = progressCurrent?.progression || {
+                level: 1,
+                xp: 0,
+                nextLevelXp: 120,
+                gamesPlayed: 0,
+                byType: { memory: 0, reflex: 0, coop_reflex: 0 }
+            };
+
+            const progression = {
+                level: Math.max(1, Math.floor(Number(baseProgress.level) || 1)),
+                xp: Math.max(0, Math.floor(Number(baseProgress.xp) || 0)),
+                nextLevelXp: Math.max(120, Math.floor(Number(baseProgress.nextLevelXp) || 120)),
+                gamesPlayed: Math.max(0, Math.floor(Number(baseProgress.gamesPlayed) || 0)),
+                byType: {
+                    memory: Math.max(0, Math.floor(Number(baseProgress?.byType?.memory) || 0)),
+                    reflex: Math.max(0, Math.floor(Number(baseProgress?.byType?.reflex) || 0)),
+                    coop_reflex: Math.max(0, Math.floor(Number(baseProgress?.byType?.coop_reflex) || 0))
+                }
+            };
+
+            progression.gamesPlayed += 1;
+            progression.byType[String(gameType)] += 1;
+            progression.xp += reward.xp;
+            while (progression.xp >= progression.nextLevelXp) {
+                progression.xp -= progression.nextLevelXp;
+                progression.level += 1;
+                progression.nextLevelXp = 120 + ((progression.level - 1) * 45);
+            }
+
+            const rewardEntry = {
+                id: `mini_${Date.now()}`,
+                gameType: String(gameType),
+                score: reward.score,
+                durationMs: reward.durationMs,
+                xp: reward.xp,
+                statDelta: reward.statDelta,
+                at: new Date().toISOString(),
+                heroes: changedHeroes
+            };
+
+            await db.collection('minigame_progress').updateOne(
+                { userId: userObjectId },
+                {
+                    $set: { userId: userObjectId, progression, updatedAt: new Date() },
+                    $push: { recentRewards: { $each: [rewardEntry], $position: 0, $slice: 20 } }
+                },
+                { upsert: true }
+            );
+
+            return res.json({
+                success: true,
+                reward: rewardEntry,
+                progression,
+                party: updatedParty
+            });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async createCoopMinigameRoom(req, res) {
+        try {
+            const db = getDB();
+            const { userId, gameType } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            const safeType = String(gameType || 'coop_reflex');
+            if (!MINIGAME_TYPES.includes(safeType)) {
+                return res.status(400).json({ error: 'Tipus de minijoc no vàlid' });
+            }
+
+            const roomCode = buildCoopRoomCode();
+            const room = {
+                roomCode,
+                gameType: safeType,
+                ownerUserId: String(userId),
+                status: 'waiting',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                members: [{ userId: String(userId), ready: false, score: null }]
+            };
+            await db.collection('minigame_coop_rooms').insertOne(room);
+            return res.json({ success: true, room });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async joinCoopMinigameRoom(req, res) {
+        try {
+            const db = getDB();
+            const { userId, roomCode } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            const safeCode = String(roomCode || '').trim().toUpperCase();
+            if (!safeCode) return res.status(400).json({ error: 'Codi de sala obligatori' });
+
+            const room = await db.collection('minigame_coop_rooms').findOne({ roomCode: safeCode });
+            if (!room) return res.status(404).json({ error: 'Sala no trobada' });
+            if (room.status === 'finished') return res.status(409).json({ error: 'La sala ya finalizó.' });
+
+            const userKey = String(userId);
+            const members = Array.isArray(room.members) ? room.members : [];
+            if (!members.find((entry) => String(entry.userId) === userKey)) {
+                if (members.length >= 4) return res.status(409).json({ error: 'Sala completa (máx. 4).' });
+                members.push({ userId: userKey, ready: false, score: null });
+            }
+
+            const allReady = members.length >= 2 && members.every((entry) => Boolean(entry.ready));
+            const status = allReady ? 'running' : 'waiting';
+
+            await db.collection('minigame_coop_rooms').updateOne(
+                { roomCode: safeCode },
+                { $set: { members, status, updatedAt: new Date() } }
+            );
+
+            const updated = await db.collection('minigame_coop_rooms').findOne({ roomCode: safeCode });
+            return res.json({ success: true, room: updated });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async submitCoopMinigameScore(req, res) {
+        try {
+            const db = getDB();
+            const { userId, roomCode, score, ready } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            const safeCode = String(roomCode || '').trim().toUpperCase();
+            if (!safeCode) return res.status(400).json({ error: 'Codi de sala obligatori' });
+            const room = await db.collection('minigame_coop_rooms').findOne({ roomCode: safeCode });
+            if (!room) return res.status(404).json({ error: 'Sala no trobada' });
+
+            const userKey = String(userId);
+            const members = Array.isArray(room.members) ? room.members.map((entry) => ({ ...entry })) : [];
+            const member = members.find((entry) => String(entry.userId) === userKey);
+            if (!member) return res.status(403).json({ error: 'No perteneces a esta sala.' });
+
+            member.ready = ready === undefined ? member.ready : Boolean(ready);
+            if (score !== undefined && score !== null) {
+                member.score = Math.max(0, Math.floor(Number(score) || 0));
+            }
+
+            const allReady = members.length >= 2 && members.every((entry) => Boolean(entry.ready));
+            const allScored = members.length >= 2 && members.every((entry) => Number.isFinite(Number(entry.score)));
+            const status = allScored ? 'finished' : (allReady ? 'running' : 'waiting');
+
+            await db.collection('minigame_coop_rooms').updateOne(
+                { roomCode: safeCode },
+                { $set: { members, status, updatedAt: new Date() } }
+            );
+
+            const updated = await db.collection('minigame_coop_rooms').findOne({ roomCode: safeCode });
+            return res.json({ success: true, room: updated });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async getCoopMinigameRoom(req, res) {
+        try {
+            const db = getDB();
+            const safeCode = String(req.params.roomCode || '').trim().toUpperCase();
+            if (!safeCode) return res.status(400).json({ error: 'Codi de sala obligatori' });
+            const room = await db.collection('minigame_coop_rooms').findOne({ roomCode: safeCode });
+            if (!room) return res.status(404).json({ error: 'Sala no trobada' });
+            return res.json({ success: true, room });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async joinCoopMatchmaking(req, res) {
+        try {
+            const db = getDB();
+            const { userId, gameType } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            const safeType = String(gameType || 'coop_reflex');
+            if (safeType !== 'coop_reflex') {
+                return res.status(400).json({ error: 'Només coop_reflex té matchmaking automàtic ara mateix.' });
+            }
+
+            const userObjectId = new ObjectId(userId);
+            const userProgress = await db.collection('minigame_progress').findOne({ userId: userObjectId });
+            const level = Math.max(1, Math.floor(Number(userProgress?.progression?.level) || 1));
+            const now = new Date();
+
+            await db.collection('minigame_matchmaking').updateOne(
+                { userId: userObjectId, gameType: safeType },
+                {
+                    $set: {
+                        userId: userObjectId,
+                        gameType: safeType,
+                        level,
+                        status: 'queued',
+                        updatedAt: now
+                    },
+                    $setOnInsert: { createdAt: now }
+                },
+                { upsert: true }
+            );
+
+            const range = matchmakingRangeForLevel(level);
+            const otherEntry = await db.collection('minigame_matchmaking').findOne({
+                gameType: safeType,
+                status: 'queued',
+                userId: { $ne: userObjectId },
+                level: { $gte: level - range, $lte: level + range }
+            }, { sort: { createdAt: 1 } });
+
+            if (!otherEntry) {
+                const queuedCount = await db.collection('minigame_matchmaking').countDocuments({ gameType: safeType, status: 'queued' });
+                return res.json({ success: true, queued: true, matched: false, queueSize: queuedCount });
+            }
+
+            const roomCode = buildCoopRoomCode();
+            const room = {
+                roomCode,
+                gameType: safeType,
+                ownerUserId: String(userId),
+                status: 'waiting',
+                createdAt: now,
+                updatedAt: now,
+                members: [
+                    { userId: String(userId), ready: false, score: null },
+                    { userId: String(otherEntry.userId), ready: false, score: null }
+                ],
+                matchmaking: true
+            };
+            await db.collection('minigame_coop_rooms').insertOne(room);
+            await db.collection('minigame_matchmaking').updateMany(
+                { gameType: safeType, userId: { $in: [userObjectId, otherEntry.userId] }, status: 'queued' },
+                { $set: { status: 'matched', roomCode, updatedAt: now } }
+            );
+
+            const wsManager = req.app?.locals?.wsManager;
+            if (wsManager && typeof wsManager.sendToUser === 'function') {
+                wsManager.sendToUser(String(userId), { type: 'miniMatchFound', gameType: safeType, roomCode });
+                wsManager.sendToUser(String(otherEntry.userId), { type: 'miniMatchFound', gameType: safeType, roomCode });
+            }
+
+            return res.json({ success: true, queued: false, matched: true, roomCode, room });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async leaveCoopMatchmaking(req, res) {
+        try {
+            const db = getDB();
+            const { userId, gameType } = req.body || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+            const safeType = String(gameType || 'coop_reflex');
+            await db.collection('minigame_matchmaking').deleteMany({
+                userId: new ObjectId(userId),
+                gameType: safeType,
+                status: 'queued'
+            });
+            return res.json({ success: true });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async getCoopMatchmakingStatus(req, res) {
+        try {
+            const db = getDB();
+            const { userId } = req.params || {};
+            if (!userId || !ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "ID d'usuari no vàlid" });
+            }
+
+            const entry = await db.collection('minigame_matchmaking').findOne({
+                userId: new ObjectId(userId),
+                gameType: 'coop_reflex'
+            }, { sort: { updatedAt: -1 } });
+
+            if (!entry) return res.json({ success: true, queued: false, matched: false });
+            if (entry.status === 'matched' && entry.roomCode) {
+                return res.json({ success: true, queued: false, matched: true, roomCode: String(entry.roomCode) });
+            }
+            const queueSize = await db.collection('minigame_matchmaking').countDocuments({
+                gameType: 'coop_reflex',
+                status: 'queued'
+            });
+            return res.json({ success: true, queued: entry.status === 'queued', matched: false, queueSize });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
         }
     }
 

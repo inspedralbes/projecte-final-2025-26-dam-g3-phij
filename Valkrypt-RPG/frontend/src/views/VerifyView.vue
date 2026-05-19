@@ -41,6 +41,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const username = ref('');
 const code = ref('');
@@ -101,7 +102,7 @@ const handleVerify = async () => {
     }
   } catch (err) {
     console.error('Error en la verificació:', err);
-    errorMessage.value = 'Error de connexió amb el servidor';
+    errorMessage.value = getApiErrorMessage(err, 'Error de connexió amb el servidor');
   } finally {
     loadingVerify.value = false;
   }
@@ -132,7 +133,7 @@ const resendOtp = async () => {
     errorMessage.value = msg || "No s'ha pogut reenviar el codi.";
   } catch (err) {
     console.error('Error reenviant OTP:', err);
-    errorMessage.value = 'Error de connexió amb el servidor';
+    errorMessage.value = getApiErrorMessage(err, 'Error de connexió amb el servidor');
   }
 };
 

@@ -23,6 +23,7 @@
       <div class="nav-links">
         <router-link to="/friends" class="nav-btn">ALIANCES</router-link>
         <router-link to="/rooms" class="nav-btn">LOBBY</router-link>
+        <router-link to="/minigames" class="nav-btn">MINIJOCS</router-link>
         <router-link to="/codice" class="nav-btn">CÒDEX</router-link>
         <router-link to="/profile" class="nav-btn">PERFIL</router-link>
       </div>
@@ -64,6 +65,23 @@
           <strong>{{ usernameLabel ? 'ONLINE' : 'OFF' }}</strong>
           <p>Coordina equip i estratègia en temps real.</p>
         </article>
+      </section>
+
+      <section class="training-shell animate__animated animate__fadeInUp animate__delay-1s">
+        <header class="shell-head">
+          <h2>CENTRE D'ENTRENAMENT</h2>
+          <button class="btn-mini" @click="openMinigames">OBRIR MINIJOCS</button>
+        </header>
+        <div class="training-grid">
+          <article class="training-card" @click="openMinigames">
+            <div class="training-icon">✦</div>
+            <div>
+              <h3>MINIJOCS I COOP ONLINE</h3>
+              <p>Entrena reflexos, memòria i puja estadístiques dels teus herois fora de campanya.</p>
+            </div>
+            <span class="training-cta">ENTRAR →</span>
+          </article>
+        </div>
       </section>
 
       <section class="adventures-shell">
@@ -157,6 +175,8 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
+import { DEFAULT_CAMPAIGN_IMAGE, resolveCampaignImage } from '../assets/valkryptAssets';
 
 const router = useRouter();
 const userInitial = ref('?');
@@ -169,7 +189,6 @@ const savesError = ref('');
 const savedGames = ref([]);
 const availableCampaigns = ref([]);
 const saveDeleteLoading = ref('');
-const SAVE_FALLBACK_IMG = 'https://images.unsplash.com/photo-1518709268805-4e9042af2ece?q=80&w=1200&auto=format&fit=crop';
 const vantaHost = ref(null);
 let vantaEffect = null;
 
@@ -188,10 +207,15 @@ const loadCampaigns = async () => {
     const response = await fetch('/api/game/campaigns');
     if (!response.ok) throw new Error(`Error ${response.status}`);
     const campaigns = await response.json();
-    availableCampaigns.value = Array.isArray(campaigns) ? campaigns : [];
+    availableCampaigns.value = Array.isArray(campaigns)
+      ? campaigns.map((campaign) => ({
+          ...campaign,
+          img: resolveCampaignImage(campaign, DEFAULT_CAMPAIGN_IMAGE)
+        }))
+      : [];
   } catch (err) {
     console.error("No s'ha pogut carregar el catàleg de campanyes:", err);
-    campaignsError.value = "No s'han pogut carregar campanyes des de la base de dades.";
+    campaignsError.value = getApiErrorMessage(err, "No s'han pogut carregar campanyes des de la base de dades.");
     availableCampaigns.value = [];
   } finally {
     campaignsLoading.value = false;
@@ -213,18 +237,18 @@ const loadSavedGames = async (userId) => {
     if (!response.ok) throw new Error(`Error ${response.status}`);
     const saves = await response.json();
     savedGames.value = Array.isArray(saves)
-      ? saves.map((save) => ({
+        ? saves.map((save) => ({
           id: save.id || `${save.campaignId || 'save'}-${save.updatedAt || Date.now()}`,
           title: String(save.title || 'PARTIDA').toUpperCase(),
           location: String(save.location || 'DESCONEGUT').toUpperCase(),
           lastEvent: save.lastEvent || 'Sense esdeveniments recents.',
           date: formatSaveDate(save.updatedAt),
-          img: save.img || SAVE_FALLBACK_IMG
+          img: resolveCampaignImage(save, DEFAULT_CAMPAIGN_IMAGE)
         }))
       : [];
   } catch (err) {
     console.error("No s'han pogut carregar les partides desades:", err);
-    savesError.value = "No s'han pogut llegir les teves partides desades.";
+    savesError.value = getApiErrorMessage(err, "No s'han pogut llegir les teves partides desades.");
     savedGames.value = [];
   } finally {
     savesLoading.value = false;
@@ -240,6 +264,10 @@ const handleLogout = () => {
 const openCampaignSelector = async () => {
   isSelectingCampaign.value = true;
   if (availableCampaigns.value.length === 0 && !campaignsLoading.value) await loadCampaigns();
+};
+
+const openMinigames = () => {
+  router.push('/minigames');
 };
 
 const exportChroniclesPdf = async () => {
@@ -279,7 +307,7 @@ const deleteSave = async (saveId) => {
     savedGames.value = savedGames.value.filter((save) => save.id !== saveId);
   } catch (error) {
     console.error("No s'ha pogut eliminar la partida:", error);
-    window.alert("No s'ha pogut eliminar la història desada.");
+    window.alert(getApiErrorMessage(error, "No s'ha pogut eliminar la història desada."));
   } finally {
     saveDeleteLoading.value = '';
   }
@@ -611,6 +639,65 @@ $gold: #c5a059;
   background: rgba(8, 8, 10, 0.58);
   padding: 14px;
   border-radius: 16px;
+}
+
+.training-shell {
+  margin-top: 14px;
+  border: 1px solid rgba($gold, 0.2);
+  background: rgba(10, 10, 14, 0.62);
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.training-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.training-card {
+  border: 1px solid rgba($gold, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(197, 160, 89, 0.08), rgba(16, 22, 35, 0.65));
+  padding: 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  cursor: pointer;
+  transition: .22s ease;
+  &:hover {
+    border-color: rgba($gold, 0.48);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25);
+  }
+  h3 {
+    margin: 0;
+    color: #f1d69b;
+    font-size: 1.02rem;
+  }
+  p {
+    margin: 6px 0 0;
+    color: #a8a8b1;
+    font-size: 0.84rem;
+  }
+}
+
+.training-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba($gold, 0.35);
+  display: grid;
+  place-items: center;
+  color: #e5c98d;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 1.3rem;
+}
+
+.training-cta {
+  color: #e8cf9a;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
 }
 
 .shell-head {
@@ -974,6 +1061,14 @@ $gold: #c5a059;
     .btn-main,
     .btn-ghost {
       width: 100%;
+    }
+  }
+
+  .training-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+    .training-icon {
+      margin: 0 auto;
     }
   }
 }

@@ -90,6 +90,15 @@ export class WebSocketService {
     this.send({ type: 'chatMessage', roomCode, username, payload: { message } });
   }
   startGame(roomCode, userId, username) { this.send({ type: 'startGame', roomCode, userId, username }); }
+  joinMiniCoop(roomCode, userId, username) { this.send({ type: 'joinMiniCoop', roomCode, userId, username }); }
+  leaveMiniCoop(roomCode) { this.send({ type: 'leaveMiniCoop', roomCode }); }
+  miniCoopReady(roomCode, userId, username, ready) {
+    this.send({ type: 'miniCoopReady', roomCode, userId, username, payload: { ready: Boolean(ready) } });
+  }
+  miniCoopScore(roomCode, userId, username, score) {
+    this.send({ type: 'miniCoopScore', roomCode, userId, username, payload: { score: Number(score || 0) } });
+  }
+  miniCoopState(roomCode) { this.send({ type: 'miniCoopState', roomCode }); }
 }
 
 export const wsService = new WebSocketService();

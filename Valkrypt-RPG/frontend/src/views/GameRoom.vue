@@ -272,10 +272,12 @@ import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { wsService } from '@/services/WebSocketService';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const route = useRoute();
 const router = useRouter();
 const API_URL = '/api';
+const apiErr = (error, fallback) => getApiErrorMessage(error, fallback);
 
 const roomCode = ref(route.params.roomCode);
 const currentUser = ref(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -617,7 +619,7 @@ const initRoom = async () => {
         throw new Error(response.data?.message || 'No se pudo unir a la sala');
       }
     } catch (error) {
-      setToast(error.response?.data?.message || 'No se pudo unir a la sala.');
+      setToast(apiErr(error, 'No se pudo unir a la sala.'));
       router.push({ name: 'RoomLobby' });
       return;
     }
@@ -651,7 +653,7 @@ const saveCharacter = async () => {
     setToast('Personaje actualizado.');
     await refreshRoom();
   } catch (error) {
-    setToast(error.response?.data?.message || error.message || 'No se pudo guardar personaje.');
+    setToast(apiErr(error, 'No se pudo guardar personaje.'));
   } finally {
     savingCharacter.value = false;
   }
@@ -688,7 +690,7 @@ const assignRole = async (roleId) => {
     setToast(`Rol ${roleLabelById(roleId)} asignado.`);
     await refreshRoom();
   } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message || 'No se pudo asignar rol.';
+    const errorMessage = apiErr(error, 'No se pudo asignar rol.');
     setToast(errorMessage, 5000);
     try { window.alert(errorMessage); } catch {}
   } finally {
@@ -715,7 +717,7 @@ const playChoice = async (choiceId) => {
 
     await refreshRoom();
   } catch (error) {
-    setToast(error.response?.data?.message || error.message || 'No se pudo procesar la eleccion.');
+    setToast(apiErr(error, 'No se pudo procesar la eleccion.'));
   } finally {
     submittingChoice.value = false;
   }
@@ -751,7 +753,7 @@ const startMultiplayerGame = async () => {
     setToast(response.data?.message || 'Partida iniciada.');
     await refreshRoom();
   } catch (error) {
-    setToast(error.response?.data?.message || error.message || 'No se pudo iniciar la partida.');
+    setToast(apiErr(error, 'No se pudo iniciar la partida.'));
   }
 };
 
@@ -809,7 +811,7 @@ const deleteRoom = async () => {
     wsService.disconnect();
     router.push({ name: 'RoomLobby' });
   } catch (error) {
-    setToast(error.response?.data?.message || error.message || 'No se pudo eliminar la sala.');
+    setToast(apiErr(error, 'No se pudo eliminar la sala.'));
   }
 };
 

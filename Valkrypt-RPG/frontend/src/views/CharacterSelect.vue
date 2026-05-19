@@ -78,6 +78,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
+import { resolveCampaignAssetKey } from '../assets/valkryptAssets';
 
 const router = useRouter();
 const route = useRoute();
@@ -135,7 +137,7 @@ const loadCampaign = async () => {
     party.value = [];
   } catch (err) {
     console.error("No s'ha pogut carregar la campanya:", err);
-    campaignError.value = "No s'ha pogut carregar aquesta campanya des de la base de dades.";
+    campaignError.value = getApiErrorMessage(err, "No s'ha pogut carregar aquesta campanya des de la base de dades.");
     campaignData.value = null;
     party.value = [];
   } finally {
@@ -164,7 +166,7 @@ const start = async () => {
     campaignId: campaignData.value.id || campaignId.value,
     campaignTitle: campaignData.value.title,
     location: campaignData.value.location,
-    currentBackground: campaignData.value.img || '',
+    currentBackground: resolveCampaignAssetKey(campaignData.value) || campaignData.value.img || '',
     dayLimit: campaignData.value.dayLimit,
     party: party.value,
     turn: 1
@@ -181,10 +183,12 @@ const start = async () => {
       localStorage.setItem('valkrypt_current_game', JSON.stringify(sessionData));
       router.push('/game');
     } else {
-      console.error('Error en desar la partida inicial');
+      const data = await response.json().catch(() => ({}));
+      alert(getApiErrorMessage(data, 'Error en desar la partida inicial.'));
     }
   } catch (err) {
     console.error('Error de xarxa en connectar amb el servidor:', err);
+    alert(getApiErrorMessage(err, 'Error de xarxa en connectar amb el servidor.'));
   }
 };
 </script>

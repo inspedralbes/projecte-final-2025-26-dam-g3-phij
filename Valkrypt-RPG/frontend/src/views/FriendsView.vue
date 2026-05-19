@@ -203,6 +203,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 const router = useRouter();
 const vantaHost = ref(null);
 let vantaEffect = null;
@@ -306,7 +307,7 @@ const loadSocialState = async ({ silent = false } = {}) => {
     setLocalUserSocial();
   } catch (error) {
     console.error("Error carregant l'estat social:", error);
-    statusMessage.value = "No s'ha pogut carregar l'estat social.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut carregar l'estat social.");
   } finally {
     if (!silent) loadingSocial.value = false;
   }
@@ -331,7 +332,7 @@ const performUserSearch = async () => {
     searchResults.value = Array.isArray(data.users) ? data.users : [];
   } catch (error) {
     console.error('Error cercant usuaris:', error);
-    statusMessage.value = error.message || "No s'han pogut cercar usuaris.";
+    statusMessage.value = getApiErrorMessage(error, "No s'han pogut cercar usuaris.");
   } finally {
     searchingUsers.value = false;
   }
@@ -359,7 +360,7 @@ const sendFriendRequest = async (username) => {
     await loadSocialState();
   } catch (error) {
     console.error('Error enviant sol·licitud:', error);
-    statusMessage.value = error.message || "No s'ha pogut enviar la sol·licitud.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut enviar la sol·licitud.");
   } finally {
     sendingRequestTo.value = '';
   }
@@ -386,7 +387,7 @@ const acceptFriendRequest = async (fromUsername) => {
     await loadSocialState();
   } catch (error) {
     console.error('Error acceptant sol·licitud:', error);
-    statusMessage.value = error.message || "No s'ha pogut acceptar la sol·licitud.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut acceptar la sol·licitud.");
   } finally {
     processingRequest.value = '';
   }
@@ -413,7 +414,7 @@ const rejectFriendRequest = async (fromUsername) => {
     await loadSocialState();
   } catch (error) {
     console.error('Error rebutjant sol·licitud:', error);
-    statusMessage.value = error.message || "No s'ha pogut rebutjar la sol·licitud.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut rebutjar la sol·licitud.");
   } finally {
     processingRequest.value = '';
   }
@@ -433,7 +434,7 @@ const fetchActiveRooms = async ({ silent = false } = {}) => {
   } catch (error) {
     console.error("No s'han pogut carregar sales:", error);
     if (!silent) {
-      roomsError.value = "No s'han pogut carregar les sales actives.";
+      roomsError.value = getApiErrorMessage(error, "No s'han pogut carregar les sales actives.");
       activeRooms.value = [];
     }
   } finally {
@@ -473,7 +474,7 @@ const joinRoom = async (room) => {
     router.push({ name: 'GameRoom', params: { roomCode: room.roomCode } });
   } catch (error) {
     console.error('Error en unir-se a la sala:', error);
-    statusMessage.value = error.message || "No ha estat possible unir-se a la sala.";
+    statusMessage.value = getApiErrorMessage(error, "No ha estat possible unir-se a la sala.");
   } finally {
     joiningRoomCode.value = '';
   }
@@ -552,7 +553,7 @@ const fetchChatMessages = async () => {
     }
   } catch (error) {
     console.error('Error carregant xat:', error);
-    statusMessage.value = error.message || "No s'ha pogut carregar el xat privat.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut carregar el xat privat.");
   } finally {
     loadingChat.value = false;
   }
@@ -588,7 +589,7 @@ const sendChatMessage = async () => {
     }
   } catch (error) {
     console.error('Error enviant missatge:', error);
-    statusMessage.value = error.message || "No s'ha pogut enviar el missatge.";
+    statusMessage.value = getApiErrorMessage(error, "No s'ha pogut enviar el missatge.");
   } finally {
     sendingChat.value = false;
   }

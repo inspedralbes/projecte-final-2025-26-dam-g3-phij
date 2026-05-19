@@ -12,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
+const { isAdminUser } = require('../middleware/auth');
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 15);
@@ -375,7 +376,7 @@ class AuthController {
             }
 
             const token = jwt.sign(
-                { id: user._id, username: user.username },
+                { id: user._id, username: user.username, isAdmin: isAdminUser(user.username) },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
@@ -393,7 +394,8 @@ class AuthController {
                     friendRequests: {
                         incoming: Array.isArray(user?.friendRequests?.incoming) ? user.friendRequests.incoming : [],
                         outgoing: Array.isArray(user?.friendRequests?.outgoing) ? user.friendRequests.outgoing : []
-                    }
+                    },
+                    isAdmin: isAdminUser(user.username)
                 }
             });
 

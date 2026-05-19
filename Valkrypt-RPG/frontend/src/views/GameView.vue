@@ -1,6 +1,6 @@
 <template>
   <div class="game-viewport">
-    <div class="fx-layer bg-image" :style="{ backgroundImage: `url(${currentBackground || '/assets/default-bg.jpg'})` }"></div>
+    <div class="fx-layer bg-image" :style="{ backgroundImage: `url(${resolvedCurrentBackground})` }"></div>
     <div class="fx-layer vignette"></div>
     <div class="fx-layer grain"></div>
     <div class="fx-layer aurora"></div>
@@ -177,6 +177,7 @@ import TacticalCombatPanel from '../components/TacticalCombatPanel.vue';
 import PartyInventoryPanel from '../components/PartyInventoryPanel.vue';
 import { extractNarrativeText, parseEventTags, buildFallbackOptions, processFinalTags } from '../utils/gameNarrative';
 import { normalizePartyState } from '../utils/partySystem';
+import { DEFAULT_GAME_BACKGROUND, resolveCampaignImage } from '../assets/valkryptAssets';
 const ACTION_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_MS = 90000;
 const ACTION_MAX_RETRIES = 2;
@@ -191,6 +192,7 @@ const isTyping = ref(false);
 const isSubmittingAction = ref(false);
 const showFriends = ref(false);
 const userId = ref(null);
+const campaignId = ref('');
 const campaignTitle = ref("LA SOMBRA DE PIEDRAPROFUNDA");
 const locationName = ref("Carregant...");
 const currentBackground = ref("");
@@ -211,6 +213,12 @@ const combatEncounter = ref(null);
 const visibleHistory = computed(() => (
   combatEncounter.value ? history.value.slice(-1) : history.value
 ));
+const resolvedCurrentBackground = computed(() => resolveCampaignImage({
+  campaignId: campaignId.value,
+  title: campaignTitle.value,
+  location: locationName.value,
+  img: currentBackground.value
+}, DEFAULT_GAME_BACKGROUND));
 let partySyncTimer = null;
 let partySyncPromise = null;
 let partySyncDirty = false;
@@ -365,6 +373,7 @@ const normalizeHistoryEntry = (entry) => {
 };
 const applySaveState = (save) => {
   if (!save || typeof save !== 'object') return;
+  campaignId.value = save.campaignId || campaignId.value;
   campaignTitle.value = save.campaignTitle || campaignTitle.value;
   locationName.value = save.locationName || locationName.value;
   currentBackground.value = save.currentBackground || currentBackground.value;

@@ -39,6 +39,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const username = ref('');
 const email = ref('');
@@ -76,7 +77,7 @@ const handleRegister = async () => {
     successMessage.value = data.message || 'Compte creat. Redirigint a verificació...';
     setTimeout(() => router.push('/verify'), 500);
   } catch (err) {
-    errorMessage.value = err.message || 'No s’ha pogut completar el registre.';
+    errorMessage.value = getApiErrorMessage(err, 'No s’ha pogut completar el registre.');
     console.error('Error en registre:', err);
   } finally {
     loading.value = false;

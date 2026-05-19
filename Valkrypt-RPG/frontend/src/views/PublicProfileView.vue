@@ -117,6 +117,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const router = useRouter();
 const route = useRoute();
@@ -162,7 +163,7 @@ const loadProfile = async () => {
     profile.value = data.profile || null;
   } catch (error) {
     console.error('Error en perfil públic:', error);
-    errorMsg.value = error.message || "No s'ha pogut carregar el perfil públic.";
+    errorMsg.value = getApiErrorMessage(error, "No s'ha pogut carregar el perfil públic.");
     profile.value = null;
   } finally {
     loading.value = false;

@@ -2,6 +2,10 @@ require('dotenv').config();
 const { connectDB, getDB } = require('../config/db');
 
 const now = new Date();
+const CAMPAIGN_IMAGE_KEYS = {
+  piedraprofunda: 'campaign:piedraprofunda',
+  invierno: 'campaign:invierno'
+};
 
 const coreHeroes = [
   {
@@ -49,7 +53,7 @@ const campaigns = [
     title: 'La Sombra de Piedraprofunda',
     desc: 'Cuatro condenados por la Corona son enviados a las minas de Piedraprofunda para cerrar una Grieta Mayor antes de que el Abismo devore Valkrypt.',
     location: 'Minas de Piedraprofunda',
-    img: 'https://images.unsplash.com/photo-1519074063912-ad25b5ce4924?q=80&w=600',
+    img: CAMPAIGN_IMAGE_KEYS.piedraprofunda,
     dayLimit: 30,
     introText: 'La Corona ha marcado a tu escuadra para una misión urgente en Piedraprofunda. El objetivo oficial es investigar la desaparición de los convoyes mineros. Lo que hallaréis allí pondrá a prueba vuestra lealtad, vuestra sangre y vuestra capacidad de decidir bajo presión.',
     tutorialText: 'TUTORIAL: Cada decisión consume tiempo. Lee el historial antes de actuar, coordina al grupo y prioriza objetivos. Esta campaña tiene 30 días y 3 acciones por día (mañana, tarde y noche): cuando se agoten, el capítulo terminará con el estado que hayas logrado.',
@@ -76,7 +80,7 @@ const campaigns = [
     title: 'El Invierno de las Minas',
     desc: 'Tras Piedraprofunda, la corte prepara las Minas del Norte para la Gran Apertura. El invierno trae cultos, anomalías y una guerra por la barrera entre mundos.',
     location: 'Minas del Norte',
-    img: 'https://images.unsplash.com/photo-1505118380757-91f5f5832de0?q=80&w=600',
+    img: CAMPAIGN_IMAGE_KEYS.invierno,
     dayLimit: 36,
     introText: 'El eco de Piedraprofunda todavía no se ha extinguido y ya llegan informes peores desde el Norte. Tu escuadra entra en un territorio congelado donde la logística, la moral y el tiempo son tan letales como cualquier criatura del Abismo.',
     tutorialText: 'TUTORIAL: Gestiona riesgos por día, evita combates innecesarios y conserva recursos para eventos críticos. Esta campaña dispone de 36 días de capítulo y 3 acciones por día antes del cierre narrativo.',

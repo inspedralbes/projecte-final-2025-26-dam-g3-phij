@@ -34,6 +34,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const username = ref('');
 const password = ref('');
@@ -74,7 +75,7 @@ const handleLogin = async () => {
     router.push('/userpage');
   } catch (err) {
     console.error(err);
-    errorMessage.value = err.message || "No s'ha pogut connectar amb el servidor de Valkrypt.";
+    errorMessage.value = getApiErrorMessage(err, "No s'ha pogut connectar amb el servidor de Valkrypt.");
   } finally {
     loading.value = false;
   }

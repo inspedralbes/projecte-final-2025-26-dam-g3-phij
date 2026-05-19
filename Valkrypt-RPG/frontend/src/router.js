@@ -13,6 +13,7 @@ import CodiceView from './views/CodiceView.vue'
 import ProfileView from './views/ProfileView.vue'
 import PublicProfileView from './views/PublicProfileView.vue'
 import AdminView from './views/AdminView.vue'
+import MiniGamesView from './views/MiniGamesView.vue'
 
 const routes = [
   { 
@@ -84,6 +85,11 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: AdminView
+  },
+  {
+    path: '/minigames',
+    name: 'minigames',
+    component: MiniGamesView
   }
 ]
 

@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { presenceService } from './services/presenceService'
+import { setupApiClient } from './services/apiClient'
 import './assets/styles/main.scss'
 
 const RUNTIME_RESET_VERSION = '2026-02-25-runtime-reset-1';
@@ -15,6 +16,7 @@ if (localStorage.getItem('valkrypt_runtime_reset_version') !== RUNTIME_RESET_VER
 }
 
 const app = createApp(App)
+setupApiClient()
 app.use(createPinia())
 app.use(router)
 app.mount('#app')
