@@ -1,32 +1,25 @@
-# Valkrypt RPG
+﻿# Documentacio de lliurament - Valkrypt
 
-Aplicació amb frontend Vue + backend Node.js/Express + MongoDB.
+Aquesta carpeta `/doc` conté els 10 apartats de l'entrega final (A-J).
 
-## Arrencar-ho tot amb Docker
+## Fitxers obligatoris a l'arrel
+- `comercial_2425_XXXProjecteXXX.pdf`
+- `tecnica_2425_XXProjecteXX.pdf`
+- `pitch_2425_XXXProjecteXXX.mp4`
+- `demo_2425_XXXProjecteXXX.mp4`
+- `resum_2425_XXXProjecteXXX.pdf`
 
-1. Copia variables d'entorn:
-```bash
-cp .env.example .env
-```
-2. Opcional però recomanat: edita `.env` i posa valors reals a `JWT_SECRET`, `EMAIL_USER` i `EMAIL_PASS`.
-3. Aixeca tota la pila:
-```bash
-docker compose up --build
-```
+## Apartats
+- `A_resum_presentacio/`
+- `B_planificacio/`
+- `C_disseny/`
+- `D_codifont/`
+- `E_documentacio_tecnica/`
+- `F_presentacio_comercial/`
+- `G_demo/`
+- `H_presentacio_tecnica/`
+- `I_manual_usuari/`
+- `J_pitch/`
 
-## URLs
-
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:3000`
-- MongoDB: `mongodb://localhost:27017`
-
-## Aturar
-
-```bash
-docker compose down
-```
-
-Per esborrar també el volum de MongoDB:
-```bash
-docker compose down -v
-```
+## Nota
+Els fitxers `demo_2425_XXXProjecteXXX.mp4` i `pitch_2425_XXXProjecteXXX.mp4` s'han creat com a placeholders i s'han de substituir pels videos finals.
