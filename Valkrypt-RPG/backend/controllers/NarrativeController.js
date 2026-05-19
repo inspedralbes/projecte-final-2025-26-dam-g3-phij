@@ -223,13 +223,18 @@ function normalizeHero(rawHero) {
     };
 }
 
-const MINIGAME_TYPES = ['memory', 'reflex', 'coop_reflex'];
+const MINIGAME_TYPES = ['memory', 'reflex', 'coop_reflex', 'timing', 'sequence', 'dodge', 'aim', 'arithmetic'];
 const COOP_ROOM_CODE_LENGTH = 6;
 
 function getBaseXpByMinigame(type) {
     if (type === 'memory') return 28;
     if (type === 'reflex') return 24;
     if (type === 'coop_reflex') return 32;
+    if (type === 'timing') return 22;
+    if (type === 'sequence') return 26;
+    if (type === 'dodge') return 24;
+    if (type === 'aim') return 25;
+    if (type === 'arithmetic') return 23;
     return 20;
 }
 
@@ -260,6 +265,20 @@ function buildMinigameReward(gameType, score, durationMs) {
         statDelta.defense = 1 + Math.floor(safeScore / 30);
         statDelta.agility = 1 + Math.floor(safeScore / 30);
         statDelta.maxHp = 1 + Math.floor(safeScore / 28);
+    } else if (gameType === 'timing') {
+        statDelta.agility = 1 + Math.floor(safeScore / 22);
+    } else if (gameType === 'sequence') {
+        statDelta.magic = 1 + Math.floor(safeScore / 20);
+        statDelta.defense = Math.floor(safeScore / 40);
+    } else if (gameType === 'dodge') {
+        statDelta.agility = 1 + Math.floor(safeScore / 20);
+        statDelta.defense = 1 + Math.floor(safeScore / 36);
+    } else if (gameType === 'aim') {
+        statDelta.attack = 1 + Math.floor(safeScore / 20);
+        statDelta.agility = Math.floor(safeScore / 34);
+    } else if (gameType === 'arithmetic') {
+        statDelta.magic = 1 + Math.floor(safeScore / 20);
+        statDelta.attack = Math.floor(safeScore / 42);
     }
 
     return { xp, statDelta, score: safeScore, durationMs: safeDuration };
@@ -1084,7 +1103,7 @@ class NarrativeController {
                     xp: 0,
                     nextLevelXp: 120,
                     gamesPlayed: 0,
-                    byType: { memory: 0, reflex: 0, coop_reflex: 0 }
+                    byType: { memory: 0, reflex: 0, coop_reflex: 0, timing: 0, sequence: 0, dodge: 0, aim: 0, arithmetic: 0 }
                 },
                 recentRewards: Array.isArray(progression?.recentRewards) ? progression.recentRewards.slice(0, 20) : []
             });
@@ -1212,7 +1231,7 @@ class NarrativeController {
                 xp: 0,
                 nextLevelXp: 120,
                 gamesPlayed: 0,
-                byType: { memory: 0, reflex: 0, coop_reflex: 0 }
+                byType: { memory: 0, reflex: 0, coop_reflex: 0, timing: 0, sequence: 0, dodge: 0, aim: 0, arithmetic: 0 }
             };
 
             const progression = {
@@ -1223,7 +1242,12 @@ class NarrativeController {
                 byType: {
                     memory: Math.max(0, Math.floor(Number(baseProgress?.byType?.memory) || 0)),
                     reflex: Math.max(0, Math.floor(Number(baseProgress?.byType?.reflex) || 0)),
-                    coop_reflex: Math.max(0, Math.floor(Number(baseProgress?.byType?.coop_reflex) || 0))
+                    coop_reflex: Math.max(0, Math.floor(Number(baseProgress?.byType?.coop_reflex) || 0)),
+                    timing: Math.max(0, Math.floor(Number(baseProgress?.byType?.timing) || 0)),
+                    sequence: Math.max(0, Math.floor(Number(baseProgress?.byType?.sequence) || 0)),
+                    dodge: Math.max(0, Math.floor(Number(baseProgress?.byType?.dodge) || 0)),
+                    aim: Math.max(0, Math.floor(Number(baseProgress?.byType?.aim) || 0)),
+                    arithmetic: Math.max(0, Math.floor(Number(baseProgress?.byType?.arithmetic) || 0))
                 }
             };
 
