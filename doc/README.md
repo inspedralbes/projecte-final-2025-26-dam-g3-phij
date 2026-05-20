@@ -2,20 +2,26 @@
 
 Aquest directori conte la documentacio de lliurament del projecte Valkrypt.
 
+Cada apartat principal inclou un PDF llegible i, quan s'ha generat de nou, tambe un fitxer `.md` editable amb el text original. Els documents estan escrits amb explicacions simples perque els pugui entendre una persona sense coneixements tecnics profunds.
+
 ## Documents principals
 
 Els documents obligatoris que han d'estar directament dins de `/doc` son:
 
 | Document | Estat | Fitxer |
 | --- | --- | --- |
-| Presentacio comercial / funcional | Fet | `comercial_2425_Valkrypt.pdf` |
-| Presentacio tecnica | Fet | `tecnica_2425_Valkrypt.pdf` |
-| Pitch publicitari | Fet | `pitch_2425_Valkrypt.mp4` |
-| Demo de l'aplicacio | Pendent de substituir | `demo_2425_Valkrypt.mp4` |
-| Presentacio resum | Fet | `summary_2425_Valkrypt.pdf` |
-| Disseny | Fet | `disseny_2425_Valkrypt.pdf` |
+| Presentacio resum | Fet | `A_resum_presentacio/summary_2425_Valkrypt.pdf` |
+| Planificacio | Fet | `B_planificacio/planificacio_2425_Valkrypt.pdf` |
+| Disseny | Fet | `C_disseny/disseny_2425_Valkrypt.pdf` |
+| Codi font i desplegament | Fet | `D_codifont/codifont_2425_Valkrypt.pdf` |
+| Documentacio tecnica | Fet | `E_documentacio_tecnica/documentacio_tecnica_2425_Valkrypt.pdf` |
+| Presentacio comercial / funcional | Fet | `F_presentacio_comercial/Valkrypt_Comercial_Sharp_Corners.pptx.pdf` |
+| Demo de l'aplicacio | Pendent de substituir | `G_demo/demo_2425_Valkrypt.mp4` |
+| Presentacio tecnica | Fet | `H_presentacio_tecnica/Valkrypt_Tecnica_Sharp_Corners.pptx.pdf` |
+| Manual d'usuari | Fet | `I_manual_usuari/manual_usuari_2425_Valkrypt.pdf` |
+| Pitch publicitari | Fet | `J_pitch/pitch_2425_Valkrypt.mp4` |
 
-> Atencio: `demo_2425_Valkrypt.mp4` existeix, pero actualment pesa 0 bytes. Cal substituir-lo per un video real de demostracio abans del lliurament final.
+> Atencio: `G_demo/demo_2425_Valkrypt.mp4` existeix, pero actualment pesa 0 bytes. Cal substituir-lo per un video real de demostracio abans del lliurament final.
 
 ## Organitzacio per apartats
 
@@ -62,7 +68,7 @@ Inclou el manual necessari perque un usuari pugui entendre i utilitzar l'aplicac
 
 ## Notes finals abans del lliurament
 
-- Substituir `demo_2425_Valkrypt.mp4` per un video real, ja que el fitxer actual esta buit.
+- Substituir `G_demo/demo_2425_Valkrypt.mp4` per un video real, ja que el fitxer actual esta buit.
 - Revisar que els PDF obren correctament des de GitHub.
 - Revisar que el pitch dura aproximadament 1 minut.
 - Si el professorat exigeix exactament el nom `resum_2425_Valkrypt.pdf`, mantenir tambe una copia amb aquest nom. Actualment el lliurament principal usa `summary_2425_Valkrypt.pdf`, tal com demana l'enunciat.

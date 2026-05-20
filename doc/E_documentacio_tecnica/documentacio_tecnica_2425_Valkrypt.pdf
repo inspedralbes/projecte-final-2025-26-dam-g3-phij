@@ -1,74 +1,403 @@
 %PDF-1.4
-%“Œ‹ž ReportLab Generated PDF document (opensource)
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Length 3498 >>
+stream
+BT
+/F2 18 Tf
+50 780 Td
+(Valkrypt - Documentacio tecnica) Tj
+-50 -780 Td
+/F1 10 Tf
+50 752 Td
+-50 -752 Td
+/F1 10 Tf
+50 743 Td
+-50 -743 Td
+/F2 14 Tf
+50 734 Td
+(1. Explicacio general) Tj
+-50 -734 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(Valkrypt es una aplicacio web amb tres parts principals: frontend, backend i base de) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+(dades.) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+-50 -675 Td
+/F1 10 Tf
+50 666 Td
+(El frontend es el que veu l'usuari. El backend rep peticions, comprova permisos i) Tj
+-50 -666 Td
+/F1 10 Tf
+50 652 Td
+(executa la logica. La base de dades guarda usuaris, sales, sessions i progres de joc.) Tj
+-50 -652 Td
+/F1 10 Tf
+50 638 Td
+-50 -638 Td
+/F2 14 Tf
+50 629 Td
+(2. Arquitectura) Tj
+-50 -629 Td
+/F1 10 Tf
+50 607 Td
+-50 -607 Td
+/F1 10 Tf
+50 598 Td
+(Quan l'usuari prem un boto, el frontend envia una peticio al backend. El backend valida) Tj
+-50 -598 Td
+/F1 10 Tf
+50 584 Td
+(l'accio, consulta o modifica MongoDB i retorna una resposta.) Tj
+-50 -584 Td
+/F1 10 Tf
+50 570 Td
+-50 -570 Td
+/F1 10 Tf
+50 561 Td
+(Per a les funcions en temps real, com les sales o la presencia, s'utilitza WebSocket.) Tj
+-50 -561 Td
+/F1 10 Tf
+50 547 Td
+(Aixo permet actualitzar la informacio sense recarregar la pagina.) Tj
+-50 -547 Td
+/F1 10 Tf
+50 533 Td
+-50 -533 Td
+/F2 14 Tf
+50 524 Td
+(3. Frontend) Tj
+-50 -524 Td
+/F1 10 Tf
+50 502 Td
+-50 -502 Td
+/F1 10 Tf
+50 493 Td
+(El frontend utilitza Vue 3.) Tj
+-50 -493 Td
+/F1 10 Tf
+50 479 Td
+-50 -479 Td
+/F1 10 Tf
+50 470 Td
+(Parts principals:) Tj
+-50 -470 Td
+/F1 10 Tf
+50 456 Td
+-50 -456 Td
+/F1 10 Tf
+50 447 Td
+(- `main.js`: inicia l'aplicacio.) Tj
+-50 -447 Td
+/F1 10 Tf
+50 433 Td
+(- `router.js`: defineix les pantalles.) Tj
+-50 -433 Td
+/F1 10 Tf
+50 419 Td
+(- `views/`: pantalles completes.) Tj
+-50 -419 Td
+/F1 10 Tf
+50 405 Td
+(- `components/`: blocs reutilitzables.) Tj
+-50 -405 Td
+/F1 10 Tf
+50 391 Td
+(- `services/`: comunicacio amb backend.) Tj
+-50 -391 Td
+/F1 10 Tf
+50 377 Td
+(- `styles/`: estils visuals.) Tj
+-50 -377 Td
+/F1 10 Tf
+50 363 Td
+-50 -363 Td
+/F1 10 Tf
+50 354 Td
+(Pantalles principals: home, login, registre, verificacio, pagina d'usuari, seleccio de) Tj
+-50 -354 Td
+/F1 10 Tf
+50 340 Td
+(personatge, joc, amics, sales, perfil, admin i minijocs.) Tj
+-50 -340 Td
+/F1 10 Tf
+50 326 Td
+-50 -326 Td
+/F2 14 Tf
+50 317 Td
+(4. Backend) Tj
+-50 -317 Td
+/F1 10 Tf
+50 295 Td
+-50 -295 Td
+/F1 10 Tf
+50 286 Td
+(El backend utilitza Node.js i Express.) Tj
+-50 -286 Td
+/F1 10 Tf
+50 272 Td
+-50 -272 Td
+/F1 10 Tf
+50 263 Td
+(Parts principals:) Tj
+-50 -263 Td
+/F1 10 Tf
+50 249 Td
+-50 -249 Td
+/F1 10 Tf
+50 240 Td
+(- `server.js`: punt d'entrada.) Tj
+-50 -240 Td
+/F1 10 Tf
+50 226 Td
+(- `routes/`: URLs de l'API.) Tj
+-50 -226 Td
+/F1 10 Tf
+50 212 Td
+(- `controllers/`: logica de negoci.) Tj
+-50 -212 Td
+/F1 10 Tf
+50 198 Td
+(- `models/`: dades de MongoDB.) Tj
+-50 -198 Td
+/F1 10 Tf
+50 184 Td
+(- `middleware/`: comprovacions d'autenticacio i permisos.) Tj
+-50 -184 Td
+/F1 10 Tf
+50 170 Td
+(- `websocket/`: connexions en temps real.) Tj
+-50 -170 Td
+/F1 10 Tf
+50 156 Td
+-50 -156 Td
+/F2 14 Tf
+50 147 Td
+(5. Models de dades) Tj
+-50 -147 Td
+/F1 10 Tf
+50 125 Td
+-50 -125 Td
+/F1 10 Tf
+50 116 Td
+(Models importants:) Tj
+-50 -116 Td
+/F1 10 Tf
+50 102 Td
+-50 -102 Td
+/F1 10 Tf
+50 93 Td
+(- `User`: usuari, correu, contrasenya xifrada, verificacio i rol.) Tj
+-50 -93 Td
+/F1 10 Tf
+50 79 Td
+(- `Room`: sala multijugador, jugadors i estat.) Tj
+-50 -79 Td
+/F1 10 Tf
+50 65 Td
+(- `Session`: dades de sessio de joc.) Tj
+-50 -65 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 1) Tj
+ET
+endstream
 endobj
 4 0 obj
-<<
-/Contents 8 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 7 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
 endobj
 5 0 obj
-<<
-/PageMode /UseNone /Pages 7 0 R /Type /Catalog
->>
+<< /Length 2486 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+(- `GameSave`: progres guardat.) Tj
+-50 -780 Td
+/F1 10 Tf
+50 766 Td
+-50 -766 Td
+/F2 14 Tf
+50 757 Td
+(6. Autenticacio) Tj
+-50 -757 Td
+/F1 10 Tf
+50 735 Td
+-50 -735 Td
+/F1 10 Tf
+50 726 Td
+(El flux d'autenticacio es:) Tj
+-50 -726 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(1. Registre.) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+(2. Xifrat de contrasenya.) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+(3. Enviament de codi OTP.) Tj
+-50 -675 Td
+/F1 10 Tf
+50 661 Td
+(4. Verificacio del compte.) Tj
+-50 -661 Td
+/F1 10 Tf
+50 647 Td
+(5. Login.) Tj
+-50 -647 Td
+/F1 10 Tf
+50 633 Td
+(6. Creacio de token JWT.) Tj
+-50 -633 Td
+/F1 10 Tf
+50 619 Td
+(7. Acces a rutes protegides.) Tj
+-50 -619 Td
+/F1 10 Tf
+50 605 Td
+-50 -605 Td
+/F2 14 Tf
+50 596 Td
+(7. API) Tj
+-50 -596 Td
+/F1 10 Tf
+50 574 Td
+-50 -574 Td
+/F1 10 Tf
+50 565 Td
+(Rutes principals:) Tj
+-50 -565 Td
+/F1 10 Tf
+50 551 Td
+-50 -551 Td
+/F1 10 Tf
+50 542 Td
+(- `/api/auth`: registre, verificacio i login.) Tj
+-50 -542 Td
+/F1 10 Tf
+50 528 Td
+(- `/api/rooms`: crear, entrar, sortir i gestionar sales.) Tj
+-50 -528 Td
+/F1 10 Tf
+50 514 Td
+(- `/api/social`: amics, perfils, presencia i xat.) Tj
+-50 -514 Td
+/F1 10 Tf
+50 500 Td
+(- `/api/engine`: context narratiu, historial i cronices.) Tj
+-50 -500 Td
+/F1 10 Tf
+50 486 Td
+(- `/api/admin`: configuracio, inventari, usuaris i logs.) Tj
+-50 -486 Td
+/F1 10 Tf
+50 472 Td
+-50 -472 Td
+/F2 14 Tf
+50 463 Td
+(8. Seguretat) Tj
+-50 -463 Td
+/F1 10 Tf
+50 441 Td
+-50 -441 Td
+/F1 10 Tf
+50 432 Td
+(La seguretat es basa en contrasenyes xifrades, tokens JWT, verificacio de correu,) Tj
+-50 -432 Td
+/F1 10 Tf
+50 418 Td
+(middleware d'identitat, permisos d'administrador i limitacio de peticions.) Tj
+-50 -418 Td
+/F1 10 Tf
+50 404 Td
+-50 -404 Td
+/F2 14 Tf
+50 395 Td
+(9. Desplegament) Tj
+-50 -395 Td
+/F1 10 Tf
+50 373 Td
+-50 -373 Td
+/F1 10 Tf
+50 364 Td
+(Per desplegar cal tenir configurats MongoDB, variables d'entorn, backend, frontend, CORS) Tj
+-50 -364 Td
+/F1 10 Tf
+50 350 Td
+(i servei de correu.) Tj
+-50 -350 Td
+/F1 10 Tf
+50 336 Td
+-50 -336 Td
+/F1 10 Tf
+50 327 Td
+(El projecte inclou Docker per facilitar la posada en marxa.) Tj
+-50 -327 Td
+/F1 10 Tf
+50 313 Td
+-50 -313 Td
+/F2 14 Tf
+50 304 Td
+(10. Millores futures) Tj
+-50 -304 Td
+/F1 10 Tf
+50 282 Td
+-50 -282 Td
+/F1 10 Tf
+50 273 Td
+(Es podria afegir Swagger, mes proves automatitzades, mes campanyes, monitoratge, millor) Tj
+-50 -273 Td
+/F1 10 Tf
+50 259 Td
+(balanceig de combat i mes eines d'administracio.) Tj
+-50 -259 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 2) Tj
+ET
+endstream
 endobj
 6 0 obj
-<<
-/Author (\(anonymous\)) /CreationDate (D:20260519205008+02'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260519205008+02'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (\(unspecified\)) /Title (\(anonymous\)) /Trapped /False
->>
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<<
-/Count 1 /Kids [ 4 0 R ] /Type /Pages
->>
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
 endobj
 8 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 1106
->>
-stream
-Gatn%9iL+2&;KZF/)DL<%K7:#1Zjc5]<J9:b%:s)a^m)aguBg8P*+h)fmfWW)8\^+E6>`DP1<GpH<]3GN!L$Ti@.sg6](;2N&X,67@XQ2b$T-ccL,>#OgQ8ZK)G+$aJ-2cA%[2Yg.urq2b')<H'&dqQ>$oLfd]ABiol,c47g.,35N-@IETcqO;_?&W0sFY$g"Yfn`)rU(8P*EHG7`PeH+YOB)Fj)T05rkPCr=(('eiA(D-!#Ic^m1(RPe4^L$[a6'D(m->UB@3*HL=.PD@,XDmfjeZhqKd%g&nkI(K8lS-LnYg1fm&+d@uSGZmd->bI'IgB0;gKVUa-U.AEBBHppNeQd.5r=ai40`UFZI/s,hI:9-Ei^bGoF-R\&pM'6Z0r**)a%'j<PlD)-P:gWD==n(11"6kQg!)[j41V[8Gp<5f36t7)a8.d-)=Sk84O/ki4//*$r\s:EtqDJZ?ND*!RrW4\<b\`?D,]R<""(*0-S^\m9"V.MIChOUI7e68T;G,1$%DU:e=*X'Jpq)jg[2NEQ)U6`=5#'6)*IA)bCT)pj:VR;_V?MK"TZ$;KE1[V01kc!deqq=DHJTB\a-_Z"54,NT#^pdiqu';Y^lMJPOVISrC#a8@A&7D</S"Z^#\5+Q8tuUMC7nZ'W'E'ABN9Jn:7^S`3fOAFOJ&MMHct%gD4]Z<%MN=?/_`%6<DMC?04bbm:UsrP%;NontbMS/K4:ORWV1-o>+(1Ru+!T=2`eGGd$ROXXF-J4VY?gouoFl"L3"48?/]=O!Yn7If5I0"u"!lgkWHEt+*9@$FG0>AiT5fX'c^)/Pdk&#%a\@<[#G+Dc#f'6YGr]5J.t`&DFG`sA$7ZO(m@Ar\Cu8P=iFUDp5?Z-VL+>>c4OBZmf2;26`fhMnOTkpd4p=d6Xg#\j-GnD=l;m.)qn,F+?22:ro=hC#_kc$TXpP.g>W?`M3/fBX%mFY]cLr>@d'Fb0$*V@/&E84Sb0kp2F!/e0$'jFi-=Nb#9Y!'jP/g06J-X7nW?lfJ/Ba8eQD8Z`bQkkQ0]g(=n,s7)L&7ed*qLT;dbL4&2(X]l_cO2+<bhp"QJDiY.A?T94N'?eZm<SJ>h1&DpCZe`S~>endstream
+<< /Type /Catalog /Pages 7 0 R >>
 endobj
 xref
 0 9
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000524 00000 n 
-0000000592 00000 n 
-0000000872 00000 n 
-0000000931 00000 n 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003704 00000 n 
+0000003840 00000 n 
+0000006378 00000 n 
+0000006514 00000 n 
+0000006577 00000 n 
 trailer
-<<
-/ID 
-[<216fa75d571d3682f93fa1b920fb1709><216fa75d571d3682f93fa1b920fb1709>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 6 0 R
-/Root 5 0 R
-/Size 9
->>
+<< /Size 9 /Root 8 0 R >>
 startxref
-2128
+6626
 %%EOF

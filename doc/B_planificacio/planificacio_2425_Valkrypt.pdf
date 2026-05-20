@@ -1,93 +1,512 @@
 %PDF-1.4
-%“Œ‹ž ReportLab Generated PDF document (opensource)
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Length 3531 >>
+stream
+BT
+/F2 18 Tf
+50 780 Td
+(Valkrypt - Planificacio) Tj
+-50 -780 Td
+/F1 10 Tf
+50 752 Td
+-50 -752 Td
+/F1 10 Tf
+50 743 Td
+-50 -743 Td
+/F2 14 Tf
+50 734 Td
+(1. Objectiu de la planificacio) Tj
+-50 -734 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(La planificacio explica com es va dividir el projecte en fases. La intencio va ser) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+(construir primer una versio minima funcional i despres afegir funcionalitats fins) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+(arribar a una aplicacio completa.) Tj
+-50 -675 Td
+/F1 10 Tf
+50 661 Td
+-50 -661 Td
+/F2 14 Tf
+50 652 Td
+(2. Fase MVP) Tj
+-50 -652 Td
+/F1 10 Tf
+50 630 Td
+-50 -630 Td
+/F1 10 Tf
+50 621 Td
+(La fase MVP va servir per validar que la idea podia funcionar. Aquesta primera versio) Tj
+-50 -621 Td
+/F1 10 Tf
+50 607 Td
+(havia d'incloure una aplicacio frontend, un backend, connexio amb base de dades,) Tj
+-50 -607 Td
+/F1 10 Tf
+50 593 Td
+(registre, login i una primera pantalla de joc.) Tj
+-50 -593 Td
+/F1 10 Tf
+50 579 Td
+-50 -579 Td
+/F1 10 Tf
+50 570 Td
+(Sense aquesta fase no es podia saber si el projecte era viable. Per aixo es va) Tj
+-50 -570 Td
+/F1 10 Tf
+50 556 Td
+(prioritzar tenir una base simple abans d'afegir detalls visuals o funcionalitats) Tj
+-50 -556 Td
+/F1 10 Tf
+50 542 Td
+(socials.) Tj
+-50 -542 Td
+/F1 10 Tf
+50 528 Td
+-50 -528 Td
+/F2 14 Tf
+50 519 Td
+(3. Sprint 1 - Base del projecte) Tj
+-50 -519 Td
+/F1 10 Tf
+50 497 Td
+-50 -497 Td
+/F1 10 Tf
+50 488 Td
+(Objectiu: crear l'estructura inicial.) Tj
+-50 -488 Td
+/F1 10 Tf
+50 474 Td
+-50 -474 Td
+/F1 10 Tf
+50 465 Td
+(Tasques realitzades:) Tj
+-50 -465 Td
+/F1 10 Tf
+50 451 Td
+-50 -451 Td
+/F1 10 Tf
+50 442 Td
+(- Crear el repositori.) Tj
+-50 -442 Td
+/F1 10 Tf
+50 428 Td
+(- Crear el projecte Vue del frontend.) Tj
+-50 -428 Td
+/F1 10 Tf
+50 414 Td
+(- Crear el servidor Node.js del backend.) Tj
+-50 -414 Td
+/F1 10 Tf
+50 400 Td
+(- Preparar les primeres rutes.) Tj
+-50 -400 Td
+/F1 10 Tf
+50 386 Td
+(- Connectar frontend i backend.) Tj
+-50 -386 Td
+/F1 10 Tf
+50 372 Td
+(- Definir la primera identitat visual.) Tj
+-50 -372 Td
+/F1 10 Tf
+50 358 Td
+-50 -358 Td
+/F1 10 Tf
+50 349 Td
+(Responsables: tot l'equip va participar. Javier i Pariskar van treballar mes en) Tj
+-50 -349 Td
+/F1 10 Tf
+50 335 Td
+(pantalles i estructura visual. Izan i Harsh van donar suport en backend, integracio i) Tj
+-50 -335 Td
+/F1 10 Tf
+50 321 Td
+(proves.) Tj
+-50 -321 Td
+/F1 10 Tf
+50 307 Td
+-50 -307 Td
+/F2 14 Tf
+50 298 Td
+(4. Sprint 2 - Usuaris i autenticacio) Tj
+-50 -298 Td
+/F1 10 Tf
+50 276 Td
+-50 -276 Td
+/F1 10 Tf
+50 267 Td
+(Objectiu: permetre que els usuaris poguessin accedir de forma segura.) Tj
+-50 -267 Td
+/F1 10 Tf
+50 253 Td
+-50 -253 Td
+/F1 10 Tf
+50 244 Td
+(Tasques realitzades:) Tj
+-50 -244 Td
+/F1 10 Tf
+50 230 Td
+-50 -230 Td
+/F1 10 Tf
+50 221 Td
+(- Registre d'usuaris.) Tj
+-50 -221 Td
+/F1 10 Tf
+50 207 Td
+(- Inici de sessio.) Tj
+-50 -207 Td
+/F1 10 Tf
+50 193 Td
+(- Xifrat de contrasenyes.) Tj
+-50 -193 Td
+/F1 10 Tf
+50 179 Td
+(- Verificacio amb codi OTP.) Tj
+-50 -179 Td
+/F1 10 Tf
+50 165 Td
+(- Tokens JWT.) Tj
+-50 -165 Td
+/F1 10 Tf
+50 151 Td
+(- Proteccio de rutes privades.) Tj
+-50 -151 Td
+/F1 10 Tf
+50 137 Td
+-50 -137 Td
+/F1 10 Tf
+50 128 Td
+(Resultat: l'aplicacio ja podia distingir usuaris reals i mantenir zones privades.) Tj
+-50 -128 Td
+/F1 10 Tf
+50 114 Td
+-50 -114 Td
+/F2 14 Tf
+50 105 Td
+(5. Sprint 3 - Joc i campanyes) Tj
+-50 -105 Td
+/F1 10 Tf
+50 83 Td
+-50 -83 Td
+/F1 10 Tf
+50 74 Td
+(Objectiu: convertir la base tecnica en una experiencia de joc.) Tj
+-50 -74 Td
+/F1 10 Tf
+50 60 Td
+-50 -60 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 1) Tj
+ET
+endstream
 endobj
 4 0 obj
-<<
-/Contents 9 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 8 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
 endobj
 5 0 obj
-<<
-/Contents 10 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 8 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Length 3219 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+(Tasques realitzades:) Tj
+-50 -780 Td
+/F1 10 Tf
+50 766 Td
+-50 -766 Td
+/F1 10 Tf
+50 757 Td
+(- Seleccio de campanya.) Tj
+-50 -757 Td
+/F1 10 Tf
+50 743 Td
+(- Seleccio de personatge.) Tj
+-50 -743 Td
+/F1 10 Tf
+50 729 Td
+(- Pantalla principal de joc.) Tj
+-50 -729 Td
+/F1 10 Tf
+50 715 Td
+(- Progres narratiu.) Tj
+-50 -715 Td
+/F1 10 Tf
+50 701 Td
+(- Panells d'inventari i combat.) Tj
+-50 -701 Td
+/F1 10 Tf
+50 687 Td
+(- Recursos visuals de personatges.) Tj
+-50 -687 Td
+/F1 10 Tf
+50 673 Td
+-50 -673 Td
+/F1 10 Tf
+50 664 Td
+(Resultat: l'usuari podia entrar a una aventura i entendre el flux basic de joc.) Tj
+-50 -664 Td
+/F1 10 Tf
+50 650 Td
+-50 -650 Td
+/F2 14 Tf
+50 641 Td
+(6. Sprint 4 - Funcions socials) Tj
+-50 -641 Td
+/F1 10 Tf
+50 619 Td
+-50 -619 Td
+/F1 10 Tf
+50 610 Td
+(Objectiu: afegir interaccio entre usuaris.) Tj
+-50 -610 Td
+/F1 10 Tf
+50 596 Td
+-50 -596 Td
+/F1 10 Tf
+50 587 Td
+(Tasques realitzades:) Tj
+-50 -587 Td
+/F1 10 Tf
+50 573 Td
+-50 -573 Td
+/F1 10 Tf
+50 564 Td
+(- Cerca d'usuaris.) Tj
+-50 -564 Td
+/F1 10 Tf
+50 550 Td
+(- Peticions d'amistat.) Tj
+-50 -550 Td
+/F1 10 Tf
+50 536 Td
+(- Acceptar i rebutjar amistats.) Tj
+-50 -536 Td
+/F1 10 Tf
+50 522 Td
+(- Perfils publics.) Tj
+-50 -522 Td
+/F1 10 Tf
+50 508 Td
+(- Xat.) Tj
+-50 -508 Td
+/F1 10 Tf
+50 494 Td
+(- Estat de presencia.) Tj
+-50 -494 Td
+/F1 10 Tf
+50 480 Td
+-50 -480 Td
+/F1 10 Tf
+50 471 Td
+(Resultat: Valkrypt va passar de ser una experiencia individual a una plataforma amb) Tj
+-50 -471 Td
+/F1 10 Tf
+50 457 Td
+(comunitat.) Tj
+-50 -457 Td
+/F1 10 Tf
+50 443 Td
+-50 -443 Td
+/F2 14 Tf
+50 434 Td
+(7. Sprint 5 - Sales multijugador) Tj
+-50 -434 Td
+/F1 10 Tf
+50 412 Td
+-50 -412 Td
+/F1 10 Tf
+50 403 Td
+(Objectiu: permetre joc coordinat entre diversos usuaris.) Tj
+-50 -403 Td
+/F1 10 Tf
+50 389 Td
+-50 -389 Td
+/F1 10 Tf
+50 380 Td
+(Tasques realitzades:) Tj
+-50 -380 Td
+/F1 10 Tf
+50 366 Td
+-50 -366 Td
+/F1 10 Tf
+50 357 Td
+(- Creacio de sales.) Tj
+-50 -357 Td
+/F1 10 Tf
+50 343 Td
+(- Llista de sales actives.) Tj
+-50 -343 Td
+/F1 10 Tf
+50 329 Td
+(- Entrar i sortir de sales.) Tj
+-50 -329 Td
+/F1 10 Tf
+50 315 Td
+(- Assignacio de personatge i rol.) Tj
+-50 -315 Td
+/F1 10 Tf
+50 301 Td
+(- Inici de partida.) Tj
+-50 -301 Td
+/F1 10 Tf
+50 287 Td
+(- Decisions per torns.) Tj
+-50 -287 Td
+/F1 10 Tf
+50 273 Td
+(- Comunicacio WebSocket.) Tj
+-50 -273 Td
+/F1 10 Tf
+50 259 Td
+-50 -259 Td
+/F1 10 Tf
+50 250 Td
+(Resultat: l'aplicacio va poder mantenir espais compartits per jugar en grup.) Tj
+-50 -250 Td
+/F1 10 Tf
+50 236 Td
+-50 -236 Td
+/F2 14 Tf
+50 227 Td
+(8. Sprint 6 - Administracio i tancament) Tj
+-50 -227 Td
+/F1 10 Tf
+50 205 Td
+-50 -205 Td
+/F1 10 Tf
+50 196 Td
+(Objectiu: polir el projecte i preparar el lliurament.) Tj
+-50 -196 Td
+/F1 10 Tf
+50 182 Td
+-50 -182 Td
+/F1 10 Tf
+50 173 Td
+(Tasques realitzades:) Tj
+-50 -173 Td
+/F1 10 Tf
+50 159 Td
+-50 -159 Td
+/F1 10 Tf
+50 150 Td
+(- Panell d'administracio.) Tj
+-50 -150 Td
+/F1 10 Tf
+50 136 Td
+(- Gestio d'inventari.) Tj
+-50 -136 Td
+/F1 10 Tf
+50 122 Td
+(- Configuracio d'IA.) Tj
+-50 -122 Td
+/F1 10 Tf
+50 108 Td
+(- Control d'usuaris.) Tj
+-50 -108 Td
+/F1 10 Tf
+50 94 Td
+(- Logs.) Tj
+-50 -94 Td
+/F1 10 Tf
+50 80 Td
+(- Documentacio.) Tj
+-50 -80 Td
+/F1 10 Tf
+50 66 Td
+(- Presentacions finals.) Tj
+-50 -66 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 2) Tj
+ET
+endstream
 endobj
 6 0 obj
-<<
-/PageMode /UseNone /Pages 8 0 R /Type /Catalog
->>
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<<
-/Author (\(anonymous\)) /CreationDate (D:20260519205007+02'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260519205007+02'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (\(unspecified\)) /Title (\(anonymous\)) /Trapped /False
->>
+<< /Length 680 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+-50 -780 Td
+/F2 14 Tf
+50 771 Td
+(9. Validacio amb usuaris) Tj
+-50 -771 Td
+/F1 10 Tf
+50 749 Td
+-50 -749 Td
+/F1 10 Tf
+50 740 Td
+(La validacio es va centrar en comprovar si una persona podia entendre el cami principal:) Tj
+-50 -740 Td
+/F1 10 Tf
+50 726 Td
+(registrar-se, verificar el compte, iniciar sessio, escollir campanya, escollir) Tj
+-50 -726 Td
+/F1 10 Tf
+50 712 Td
+(personatge i jugar.) Tj
+-50 -712 Td
+/F1 10 Tf
+50 698 Td
+-50 -698 Td
+/F1 10 Tf
+50 689 Td
+(El punt mes important va ser la claredat. Si l'usuari no sabia quin boto tocar, la) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+(pantalla s'havia de millorar.) Tj
+-50 -675 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 3) Tj
+ET
+endstream
 endobj
 8 0 obj
-<<
-/Count 2 /Kids [ 4 0 R 5 0 R ] /Type /Pages
->>
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 7 0 R >>
 endobj
 9 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 1652
->>
-stream
-Gatn'hfG8H&BE],=6sGNZ)N0Rb0,c_dPg>HGL"n+gd>FJ9N%\k&g4m]VLSN'@)5kW,'>Lk`lifIIAGCc!X]&9d-`hC!.Nh@X#C_@K?Y--&II+&LY&$Kh$cHGFf6_.qiN.'`>!d8f%2gQIkCmB8$QN\!Z)HB16Jdii95gMIAt!=[]k:G._@A)ZIPABi6%:1pB!63Y^'s;3.):&OcUc,+10JJ&^Z/dMqQp&#`0G-SOaYr'e@@_g"jk5a\S9,KRM^X2[l(XrFDnpVFi$]j"po@Rk5V^G.KM3-L4dCq$q<.l6aj2HiR9Y!?KMH7(aTX9D#`Eb#'jL*-Hn\AW>@B=$WV$5$B,]0oR@U"('m@S(hFtVn\\5T#96r\t$Z1f;AA<lT(L#](lb!J<b)Z4GO*1Ptc&Jq\E6.[ar&dH/jkTj4Haf>RE[JY;k2C]W%Q0.VP0+U\/J@b-h<Qk9!`RP#uaS6^%WI)t_AUKo\_<R_14oWB\*VL9%?(G.okUcrlZ=So&qgX1h()9Un6N'8)?9%%6\+6N+Gtc!dZBc^u[mDo"\9D=;[f[L@_]oJrT>"/r*>N8DfF(T(nhQaq%GKf[ht7;IcCJ5%Na*,OU8>>_e.%GMk?Wb`/6?<">[f$:;$c+gYoi:QRcKJ6HQ5q!ffRaTtj=YkhkjW*igXh2,e>O@B?If3.^![uLs"aL#TFUXW&"ekPU_YOZ/0;?5&rXt"UE##44Ln@`S'h:AXPQ[HA"a@:$<@Ql6,"6%215HX>101gk,nSuh!C9g5WCgPa;lFcIHKfOX>=_<:-\bjW60Db9,3cP!4qiuq5&hM2R'BM8\UIf(GT$lSe0nS`F]4S%EAa(>8m.[ElI2bV(>3+hIYs_rSt:8L;:f@lhWo2tb%k?30P8r^I(_d*9.*Pd;]5ju\o,6uo"P(h,K51N&+a5(QAI%aVK`[7T^1kD<ctg`cSAFE=GNi(+83J[@MVbVi^mh.4KtdMWn)&)5"sI]@A6kc8PGP*@A9o/<T%E?dX889A^<1s<0YP)j9"?k$l*p@ap2QP+!^f^C)Z/BM?4Wi@@X:&S-^aUKdhGK/A.JWXdH297^/DmLD+fr1PKCKZGsqA&YVRLEZq>WBe"a3#G":`n@*9uTS#F=5R6[uib=p9;53K!]q>L':".fpcHaIf;*fn#Ln>M^Tu(27B436jo<pO<FlP-U+YKG[#H:6@@6'X<nA(dD_D4*kj.i4]_nq-D`H$8G:``)a3_RZT>W5)O5<*==KVcF_>_?9TjVa9kU.(K((%>6?\NPdr=>;.1%\Rig:m3/\&nRA,_HH]bI_htB#8;_V<WSF[Dl=;l8j:LV1<UQQ3PJF:0JOmW';]1//1"s@-H[lO!e42:n<KjBZ!q,!,XqA>`tTSJM_^3[_M*L&s+QY9YN:u6W=2GsaJWF"YDg2sLR+$L\DQ&m\9B_92j7SPs*?bb"T1'iZk`Ji2J__gh74M\Hb5@)mi4kF*lJ5'>_;?K9K4XOp+?t>/eX3tQDTEiCQ>R9_6E(cOq*4(7i-A'X?!kjK43$@7?rL6c-_e;(tK[4Z%HK0d3Tb@CQ:%0?s%Jl&Jp)d0pG&!p(3(uOR*RT6QcofiF_,CH+3I?nX0!Uh\$@tpQL2Kf$AI(*f[k*$e\<plQ;,&Da.l>b[C,d>iI1@~>endstream
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
 endobj
 10 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 534
->>
-stream
-Gatn!6''JK&;BTK(%7MY`N`@rD7C^^h1YqD72n5Z@M1W03-K'b(&WF>Cj,%q8DO@ag[]UGRr?:T'GP@eRiZfUUUXlC-0cKf-QMeLgsk"3Rj755W/-u4M4gr5%+"[pV1a2$"sJi)b)0WL$"[Ql;"r&G.f1Ig3Xg7mCYt)aG(XOga3HYUY>F[b^IfR16;.qCq!+j*7Wejq=iTXkQp%7dEqWg27T^re1jsPk;NO'mPCb0qijK!M;ZkSW1Ttp@N9ei"N2$aBM:95Q35+ZIVWt(&draGtM953<mW=E-K416*<`!+e[$1rS\U_3'H@qEeVO\V@FD'SEFCBT1>k+fM&9+up!fcXZ<Y*nmB?-X#g-lIY+'V0?5XG37$<CHP.'_%?jW=nVNc>@(Uf+Jd<NkrObOkqo9cSO7b/,:t`[FK!'@@b7IF&I)IFC*KeIMqr;^^Ct?G(e\b4U7X>%3t"?;N@TnT1_']5[ddqTT-^'aE.Ppc+DGJ8pQ_[;1^fYFQ2#k`%BFho&$j`eQD-^ZU=;2a7*/]`~>endstream
+<< /Type /Catalog /Pages 9 0 R >>
 endobj
 xref
 0 11
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000524 00000 n 
-0000000728 00000 n 
-0000000796 00000 n 
-0000001076 00000 n 
-0000001141 00000 n 
-0000002884 00000 n 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003737 00000 n 
+0000003873 00000 n 
+0000007144 00000 n 
+0000007280 00000 n 
+0000008011 00000 n 
+0000008147 00000 n 
+0000008216 00000 n 
 trailer
-<<
-/ID 
-[<d05783a4293f433ff900d117810b9221><d05783a4293f433ff900d117810b9221>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 7 0 R
-/Root 6 0 R
-/Size 11
->>
+<< /Size 11 /Root 10 0 R >>
 startxref
-3509
+8266
 %%EOF

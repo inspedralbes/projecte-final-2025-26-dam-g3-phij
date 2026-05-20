@@ -1,74 +1,292 @@
 %PDF-1.4
-%“Œ‹ž ReportLab Generated PDF document (opensource)
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Length 3118 >>
+stream
+BT
+/F2 18 Tf
+50 780 Td
+(Valkrypt - Codi font i desplegament) Tj
+-50 -780 Td
+/F1 10 Tf
+50 752 Td
+-50 -752 Td
+/F1 10 Tf
+50 743 Td
+-50 -743 Td
+/F2 14 Tf
+50 734 Td
+(1. Ubicacio del codi) Tj
+-50 -734 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(El codi font principal es troba a la carpeta `Valkrypt-RPG/`.) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+-50 -689 Td
+/F1 10 Tf
+50 680 Td
+(Aquesta carpeta conte el frontend, el backend i la configuracio de desplegament.) Tj
+-50 -680 Td
+/F1 10 Tf
+50 666 Td
+-50 -666 Td
+/F2 14 Tf
+50 657 Td
+(2. Backend) Tj
+-50 -657 Td
+/F1 10 Tf
+50 635 Td
+-50 -635 Td
+/F1 10 Tf
+50 626 Td
+(El backend esta fet amb Node.js i Express. El fitxer principal es `backend/server.js`.) Tj
+-50 -626 Td
+/F1 10 Tf
+50 612 Td
+-50 -612 Td
+/F1 10 Tf
+50 603 Td
+(Carpetes importants:) Tj
+-50 -603 Td
+/F1 10 Tf
+50 589 Td
+-50 -589 Td
+/F1 10 Tf
+50 580 Td
+(- `config/`: connexio amb MongoDB.) Tj
+-50 -580 Td
+/F1 10 Tf
+50 566 Td
+(- `controllers/`: logica de cada funcionalitat.) Tj
+-50 -566 Td
+/F1 10 Tf
+50 552 Td
+(- `routes/`: definicio de rutes de l'API.) Tj
+-50 -552 Td
+/F1 10 Tf
+50 538 Td
+(- `models/`: models de dades.) Tj
+-50 -538 Td
+/F1 10 Tf
+50 524 Td
+(- `middleware/`: autenticacio, permisos i format de resposta.) Tj
+-50 -524 Td
+/F1 10 Tf
+50 510 Td
+(- `websocket/`: comunicacio en temps real.) Tj
+-50 -510 Td
+/F1 10 Tf
+50 496 Td
+(- `scripts/`: dades inicials.) Tj
+-50 -496 Td
+/F1 10 Tf
+50 482 Td
+-50 -482 Td
+/F2 14 Tf
+50 473 Td
+(3. Frontend) Tj
+-50 -473 Td
+/F1 10 Tf
+50 451 Td
+-50 -451 Td
+/F1 10 Tf
+50 442 Td
+(El frontend esta fet amb Vue 3 i Vite.) Tj
+-50 -442 Td
+/F1 10 Tf
+50 428 Td
+-50 -428 Td
+/F1 10 Tf
+50 419 Td
+(Carpetes importants:) Tj
+-50 -419 Td
+/F1 10 Tf
+50 405 Td
+-50 -405 Td
+/F1 10 Tf
+50 396 Td
+(- `src/views/`: pantalles principals.) Tj
+-50 -396 Td
+/F1 10 Tf
+50 382 Td
+(- `src/components/`: components reutilitzables.) Tj
+-50 -382 Td
+/F1 10 Tf
+50 368 Td
+(- `src/services/`: comunicacio amb API i WebSocket.) Tj
+-50 -368 Td
+/F1 10 Tf
+50 354 Td
+(- `src/router.js`: navegacio entre pantalles.) Tj
+-50 -354 Td
+/F1 10 Tf
+50 340 Td
+(- `src/assets/`: estils i recursos.) Tj
+-50 -340 Td
+/F1 10 Tf
+50 326 Td
+-50 -326 Td
+/F2 14 Tf
+50 317 Td
+(4. Instal.lacio en desenvolupament) Tj
+-50 -317 Td
+/F1 10 Tf
+50 295 Td
+-50 -295 Td
+/F1 10 Tf
+50 286 Td
+(Backend:) Tj
+-50 -286 Td
+/F1 10 Tf
+50 272 Td
+-50 -272 Td
+/F1 10 Tf
+50 263 Td
+(cd Valkrypt-RPG/backend) Tj
+-50 -263 Td
+/F1 10 Tf
+50 249 Td
+(npm install) Tj
+-50 -249 Td
+/F1 10 Tf
+50 235 Td
+(npm run seed:all) Tj
+-50 -235 Td
+/F1 10 Tf
+50 221 Td
+(npm run dev) Tj
+-50 -221 Td
+/F1 10 Tf
+50 207 Td
+-50 -207 Td
+/F1 10 Tf
+50 198 Td
+(Frontend:) Tj
+-50 -198 Td
+/F1 10 Tf
+50 184 Td
+-50 -184 Td
+/F1 10 Tf
+50 175 Td
+(cd Valkrypt-RPG/frontend) Tj
+-50 -175 Td
+/F1 10 Tf
+50 161 Td
+(npm install) Tj
+-50 -161 Td
+/F1 10 Tf
+50 147 Td
+(npm run dev) Tj
+-50 -147 Td
+/F1 10 Tf
+50 133 Td
+-50 -133 Td
+/F2 14 Tf
+50 124 Td
+(5. Variables d'entorn) Tj
+-50 -124 Td
+/F1 10 Tf
+50 102 Td
+-50 -102 Td
+/F1 10 Tf
+50 93 Td
+(Cal configurar valors com:) Tj
+-50 -93 Td
+/F1 10 Tf
+50 79 Td
+-50 -79 Td
+/F1 10 Tf
+50 70 Td
+(- `MONGO_URI`: connexio a MongoDB.) Tj
+-50 -70 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 1) Tj
+ET
+endstream
 endobj
 4 0 obj
-<<
-/Contents 8 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 7 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
 endobj
 5 0 obj
-<<
-/PageMode /UseNone /Pages 7 0 R /Type /Catalog
->>
+<< /Length 708 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+(- `JWT_SECRET`: clau dels tokens.) Tj
+-50 -780 Td
+/F1 10 Tf
+50 766 Td
+(- `PORT`: port del backend.) Tj
+-50 -766 Td
+/F1 10 Tf
+50 752 Td
+(- Configuracio de correu per enviar codis OTP.) Tj
+-50 -752 Td
+/F1 10 Tf
+50 738 Td
+-50 -738 Td
+/F2 14 Tf
+50 729 Td
+(6. Desplegament) Tj
+-50 -729 Td
+/F1 10 Tf
+50 707 Td
+-50 -707 Td
+/F1 10 Tf
+50 698 Td
+(El projecte inclou Dockerfile per frontend i backend i un `docker-compose.yml`.) Tj
+-50 -698 Td
+/F1 10 Tf
+50 684 Td
+-50 -684 Td
+/F1 10 Tf
+50 675 Td
+(Abans de desplegar cal revisar la base de dades, les variables d'entorn, el domini, CORS) Tj
+-50 -675 Td
+/F1 10 Tf
+50 661 Td
+(i el servei de correu.) Tj
+-50 -661 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 2) Tj
+ET
+endstream
 endobj
 6 0 obj
-<<
-/Author (\(anonymous\)) /CreationDate (D:20260519205008+02'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260519205008+02'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (\(unspecified\)) /Title (\(anonymous\)) /Trapped /False
->>
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<<
-/Count 1 /Kids [ 4 0 R ] /Type /Pages
->>
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
 endobj
 8 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 871
->>
-stream
-Gatn#6#YL;&;BTP(%:?C$8'D`D#$sSD6bS:'].Ke.2OTop+i=4Kr!Mk^L'f[[WR[L"?72pcj])cI+/QpMA3^Qap,@X@rfQ)1TWOn3Qn],N6CnXEO:eNA"[;mr];W.?BlMV=1=/.IamI-8letq`A,V?b)9DRFbB4dck#Pk)fUOm<d"q?+Jc<q-mS?jf(W:]M]0>GiW[M`I!/V*.CKZ_QQ:R9*_0"1b&"7E.lcQh=[=s@a&*8BcS/;YZ/4Ok6^Gc6B(L8kMR0&"k&[>#f,0"A[DKqP!/6khX(a(.qih$4@=F:/1=1-ck/D]dJR2+0fma=C-"agqrM?@\I03eDlLB5V:i!`Oeg[t$)6$f5(O37alt6(6jM8,=+j,Za"``Y*$"W<)DEG]LVmo`XE/N2$eS9X4/3QW)6HFpgrJRe7h0Y[Ont4KqO)HO!+"/gS#B8bS;&i5L?MQiU.^?ds2-]tJ!p;iW5<q?#+!nXa::7p5VLq*VJN=_-cD5;\l\U%.FFrUs2Lm3H*CY'%9IDZ3.-#s,9_Y*]N7?EG4GCQH:,iE"3$/2nUSM;$;\iBPVFCL]%P,\o$*VVWhTl>]c\1hb&$D+iF!A1Fj%Qs%47ZZuG;9.LT>.Q+5PAsf9f;H9:3MN/q#sr1K$]rKC37./$1=ohi2osF6UB4]1.,m$AoC3&amG<<^OXgk9YgJp;h?UsTIe/El[4<:OF:mQThES(kl1E5&LPqpi2kMjquZ%epcH;.iLC0g7nF[09'?C:ei!gebuP]SE'DXbHsXGl@q0<&IK;2i"gRN(;3T&V\F\boGk,0DitH[B,G.5h?#14Q(h7b;6WhP09j!tR6G-nH(GrSgZu@(gZ[oQb-NBS>UON=+#T9Z~>endstream
+<< /Type /Catalog /Pages 7 0 R >>
 endobj
 xref
 0 9
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000524 00000 n 
-0000000592 00000 n 
-0000000872 00000 n 
-0000000931 00000 n 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003324 00000 n 
+0000003460 00000 n 
+0000004219 00000 n 
+0000004355 00000 n 
+0000004418 00000 n 
 trailer
-<<
-/ID 
-[<f12d44333bf4aff73502941deff0864d><f12d44333bf4aff73502941deff0864d>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 6 0 R
-/Root 5 0 R
-/Size 9
->>
+<< /Size 9 /Root 8 0 R >>
 startxref
-1892
+4467
 %%EOF

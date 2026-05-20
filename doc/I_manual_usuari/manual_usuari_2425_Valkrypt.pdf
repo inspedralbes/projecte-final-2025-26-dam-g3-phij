@@ -1,74 +1,485 @@
 %PDF-1.4
-%“Œ‹ž ReportLab Generated PDF document (opensource)
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Length 3061 >>
+stream
+BT
+/F2 18 Tf
+50 780 Td
+(Valkrypt - Manual d'usuari) Tj
+-50 -780 Td
+/F1 10 Tf
+50 752 Td
+-50 -752 Td
+/F1 10 Tf
+50 743 Td
+-50 -743 Td
+/F2 14 Tf
+50 734 Td
+(1. Que es Valkrypt) Tj
+-50 -734 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(Valkrypt es una aplicacio web de rol. L'usuari pot crear un compte, escollir personatge,) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+(jugar una aventura, afegir amics i entrar a sales.) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+-50 -675 Td
+/F1 10 Tf
+50 666 Td
+(No cal saber programar ni instal.lar res. Nomes cal utilitzar el navegador.) Tj
+-50 -666 Td
+/F1 10 Tf
+50 652 Td
+-50 -652 Td
+/F2 14 Tf
+50 643 Td
+(2. Crear un compte) Tj
+-50 -643 Td
+/F1 10 Tf
+50 621 Td
+-50 -621 Td
+/F1 10 Tf
+50 612 Td
+(Per crear un compte:) Tj
+-50 -612 Td
+/F1 10 Tf
+50 598 Td
+-50 -598 Td
+/F1 10 Tf
+50 589 Td
+(1. Entrar a la pantalla de registre.) Tj
+-50 -589 Td
+/F1 10 Tf
+50 575 Td
+(2. Escriure nom d'usuari.) Tj
+-50 -575 Td
+/F1 10 Tf
+50 561 Td
+(3. Escriure correu electronic.) Tj
+-50 -561 Td
+/F1 10 Tf
+50 547 Td
+(4. Escriure contrasenya.) Tj
+-50 -547 Td
+/F1 10 Tf
+50 533 Td
+(5. Enviar el formulari.) Tj
+-50 -533 Td
+/F1 10 Tf
+50 519 Td
+-50 -519 Td
+/F1 10 Tf
+50 510 Td
+(Despres cal verificar el compte.) Tj
+-50 -510 Td
+/F1 10 Tf
+50 496 Td
+-50 -496 Td
+/F2 14 Tf
+50 487 Td
+(3. Verificar el compte) Tj
+-50 -487 Td
+/F1 10 Tf
+50 465 Td
+-50 -465 Td
+/F1 10 Tf
+50 456 Td
+(L'aplicacio envia un codi OTP al correu.) Tj
+-50 -456 Td
+/F1 10 Tf
+50 442 Td
+-50 -442 Td
+/F1 10 Tf
+50 433 Td
+(L'usuari ha de copiar aquest codi i escriure'l a la pantalla de verificacio.) Tj
+-50 -433 Td
+/F1 10 Tf
+50 419 Td
+-50 -419 Td
+/F1 10 Tf
+50 410 Td
+(Si el correu no arriba, cal mirar la carpeta de correu brossa o demanar un nou codi.) Tj
+-50 -410 Td
+/F1 10 Tf
+50 396 Td
+-50 -396 Td
+/F2 14 Tf
+50 387 Td
+(4. Iniciar sessio) Tj
+-50 -387 Td
+/F1 10 Tf
+50 365 Td
+-50 -365 Td
+/F1 10 Tf
+50 356 Td
+(Per iniciar sessio:) Tj
+-50 -356 Td
+/F1 10 Tf
+50 342 Td
+-50 -342 Td
+/F1 10 Tf
+50 333 Td
+(1. Obrir la pantalla de login.) Tj
+-50 -333 Td
+/F1 10 Tf
+50 319 Td
+(2. Escriure usuari o correu.) Tj
+-50 -319 Td
+/F1 10 Tf
+50 305 Td
+(3. Escriure contrasenya.) Tj
+-50 -305 Td
+/F1 10 Tf
+50 291 Td
+(4. Confirmar.) Tj
+-50 -291 Td
+/F1 10 Tf
+50 277 Td
+-50 -277 Td
+/F1 10 Tf
+50 268 Td
+(Si les dades son correctes, l'aplicacio mostra la pagina principal d'usuari.) Tj
+-50 -268 Td
+/F1 10 Tf
+50 254 Td
+-50 -254 Td
+/F2 14 Tf
+50 245 Td
+(5. Pagina principal) Tj
+-50 -245 Td
+/F1 10 Tf
+50 223 Td
+-50 -223 Td
+/F1 10 Tf
+50 214 Td
+(La pagina principal es el menu central.) Tj
+-50 -214 Td
+/F1 10 Tf
+50 200 Td
+-50 -200 Td
+/F1 10 Tf
+50 191 Td
+(Des d'aqui es pot anar a:) Tj
+-50 -191 Td
+/F1 10 Tf
+50 177 Td
+-50 -177 Td
+/F1 10 Tf
+50 168 Td
+(- Joc.) Tj
+-50 -168 Td
+/F1 10 Tf
+50 154 Td
+(- Campanyes.) Tj
+-50 -154 Td
+/F1 10 Tf
+50 140 Td
+(- Personatges.) Tj
+-50 -140 Td
+/F1 10 Tf
+50 126 Td
+(- Amics.) Tj
+-50 -126 Td
+/F1 10 Tf
+50 112 Td
+(- Sales.) Tj
+-50 -112 Td
+/F1 10 Tf
+50 98 Td
+(- Perfil.) Tj
+-50 -98 Td
+/F1 10 Tf
+50 84 Td
+(- Minijocs.) Tj
+-50 -84 Td
+/F1 10 Tf
+50 70 Td
+(- Tancar sessio.) Tj
+-50 -70 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 1) Tj
+ET
+endstream
 endobj
 4 0 obj
-<<
-/Contents 8 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 7 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
 endobj
 5 0 obj
-<<
-/PageMode /UseNone /Pages 7 0 R /Type /Catalog
->>
+<< /Length 3416 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+-50 -780 Td
+/F2 14 Tf
+50 771 Td
+(6. Escollir campanya i personatge) Tj
+-50 -771 Td
+/F1 10 Tf
+50 749 Td
+-50 -749 Td
+/F1 10 Tf
+50 740 Td
+(Primer es tria una campanya. La campanya defineix el tipus d'aventura.) Tj
+-50 -740 Td
+/F1 10 Tf
+50 726 Td
+-50 -726 Td
+/F1 10 Tf
+50 717 Td
+(Despres es tria un personatge. El personatge representa l'usuari dins la historia.) Tj
+-50 -717 Td
+/F1 10 Tf
+50 703 Td
+-50 -703 Td
+/F1 10 Tf
+50 694 Td
+(Quan les dues coses estan triades, es pot començar la partida.) Tj
+-50 -694 Td
+/F1 10 Tf
+50 680 Td
+-50 -680 Td
+/F2 14 Tf
+50 671 Td
+(7. Jugar) Tj
+-50 -671 Td
+/F1 10 Tf
+50 649 Td
+-50 -649 Td
+/F1 10 Tf
+50 640 Td
+(A la pantalla de joc, l'usuari llegeix la historia i decideix que vol fer.) Tj
+-50 -640 Td
+/F1 10 Tf
+50 626 Td
+-50 -626 Td
+/F1 10 Tf
+50 617 Td
+(La pantalla mostra informacio important com el context, opcions, estat del grup,) Tj
+-50 -617 Td
+/F1 10 Tf
+50 603 Td
+(inventari o progres.) Tj
+-50 -603 Td
+/F1 10 Tf
+50 589 Td
+-50 -589 Td
+/F1 10 Tf
+50 580 Td
+(La clau es llegir la situacio abans de prendre una decisio.) Tj
+-50 -580 Td
+/F1 10 Tf
+50 566 Td
+-50 -566 Td
+/F2 14 Tf
+50 557 Td
+(8. Amics i perfils) Tj
+-50 -557 Td
+/F1 10 Tf
+50 535 Td
+-50 -535 Td
+/F1 10 Tf
+50 526 Td
+(A l'apartat d'amics es poden buscar altres usuaris, enviar peticions, acceptar amistats,) Tj
+-50 -526 Td
+/F1 10 Tf
+50 512 Td
+(rebutjar-les i veure perfils publics.) Tj
+-50 -512 Td
+/F1 10 Tf
+50 498 Td
+-50 -498 Td
+/F1 10 Tf
+50 489 Td
+(El perfil mostra informacio de l'usuari i ajuda a identificar altres jugadors.) Tj
+-50 -489 Td
+/F1 10 Tf
+50 475 Td
+-50 -475 Td
+/F2 14 Tf
+50 466 Td
+(9. Sales multijugador) Tj
+-50 -466 Td
+/F1 10 Tf
+50 444 Td
+-50 -444 Td
+/F1 10 Tf
+50 435 Td
+(Per crear una sala:) Tj
+-50 -435 Td
+/F1 10 Tf
+50 421 Td
+-50 -421 Td
+/F1 10 Tf
+50 412 Td
+(1. Entrar a l'apartat de sales.) Tj
+-50 -412 Td
+/F1 10 Tf
+50 398 Td
+(2. Crear una sala nova.) Tj
+-50 -398 Td
+/F1 10 Tf
+50 384 Td
+(3. Esperar altres jugadors.) Tj
+-50 -384 Td
+/F1 10 Tf
+50 370 Td
+(4. Iniciar la partida.) Tj
+-50 -370 Td
+/F1 10 Tf
+50 356 Td
+-50 -356 Td
+/F1 10 Tf
+50 347 Td
+(Per unir-se a una sala:) Tj
+-50 -347 Td
+/F1 10 Tf
+50 333 Td
+-50 -333 Td
+/F1 10 Tf
+50 324 Td
+(1. Obrir sales.) Tj
+-50 -324 Td
+/F1 10 Tf
+50 310 Td
+(2. Buscar una sala activa o escriure un codi.) Tj
+-50 -310 Td
+/F1 10 Tf
+50 296 Td
+(3. Entrar.) Tj
+-50 -296 Td
+/F1 10 Tf
+50 282 Td
+(4. Esperar que comenci la partida.) Tj
+-50 -282 Td
+/F1 10 Tf
+50 268 Td
+-50 -268 Td
+/F2 14 Tf
+50 259 Td
+(10. Minijocs) Tj
+-50 -259 Td
+/F1 10 Tf
+50 237 Td
+-50 -237 Td
+/F1 10 Tf
+50 228 Td
+(Els minijocs son activitats extra. Es poden obrir des del menu principal i tornar enrere) Tj
+-50 -228 Td
+/F1 10 Tf
+50 214 Td
+(quan es vulgui.) Tj
+-50 -214 Td
+/F1 10 Tf
+50 200 Td
+-50 -200 Td
+/F2 14 Tf
+50 191 Td
+(11. Tancar sessio) Tj
+-50 -191 Td
+/F1 10 Tf
+50 169 Td
+-50 -169 Td
+/F1 10 Tf
+50 160 Td
+(Quan l'usuari acaba, ha de tornar al menu i prémer tancar sessio. Aixo evita que una) Tj
+-50 -160 Td
+/F1 10 Tf
+50 146 Td
+(altra persona utilitzi el compte.) Tj
+-50 -146 Td
+/F1 10 Tf
+50 132 Td
+-50 -132 Td
+/F2 14 Tf
+50 123 Td
+(12. Problemes habituals) Tj
+-50 -123 Td
+/F1 10 Tf
+50 101 Td
+-50 -101 Td
+/F1 10 Tf
+50 92 Td
+(Si no es pot iniciar sessio, cal revisar usuari, correu, contrasenya i verificacio.) Tj
+-50 -92 Td
+/F1 10 Tf
+50 78 Td
+-50 -78 Td
+/F1 10 Tf
+50 69 Td
+(Si el codi OTP no arriba, cal revisar spam i reenviar el codi.) Tj
+-50 -69 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 2) Tj
+ET
+endstream
 endobj
 6 0 obj
-<<
-/Author (\(anonymous\)) /CreationDate (D:20260519205008+02'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20260519205008+02'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (\(unspecified\)) /Title (\(anonymous\)) /Trapped /False
->>
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<<
-/Count 1 /Kids [ 4 0 R ] /Type /Pages
->>
+<< /Length 312 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+-50 -780 Td
+/F1 10 Tf
+50 771 Td
+(Si una sala no actualitza, cal comprovar internet o recarregar la pagina.) Tj
+-50 -771 Td
+/F1 10 Tf
+50 757 Td
+-50 -757 Td
+/F1 10 Tf
+50 748 Td
+(Si l'usuari no sap on anar, ha de tornar a la pagina principal.) Tj
+-50 -748 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 3) Tj
+ET
+endstream
 endobj
 8 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 837
->>
-stream
-GatUq:NP#F&B4,0.Gcdq"i^%7*h*PV0$.GP,ubcM4W]SsYU-1ncbd0KP*5l;-&&CInK4a\n#%P4V3)pRStGBMr7U#f8jhcTNmNJ0d(I8-ZancEoi.oc<omW!17>:<NQ5u%dX^)b)Q$JFS_"e76=nm;%%730T;_c>hoCP>GjF*uYV&hs*_1D'^HhAobo]O;f0n>k_A'V;M6<gVd(bP7YdrHB%k7*3m@DWsf4Bqbf\C:@BD)Te6]pqF>ij%b1s`g,e'u?;RB!9LTfM&t+*&%f3+*(,$/`q?Hl+b?4O(.eWle;q`:7r"c@5sZ$``?gcYJfBmj#22Y\..udR>;[TdTbNpL&gE36[Aa+3&!E"1+Sp-u6MJ,$4PMKob$7RNcnV%=>J]^j+aA6gT8Z9/(PB$B2+(Pnir*@g<4GXZ^WDk$tWIC[)Zq;:I*-$AH[MqS$T.9>a<g4'deGJp.nj$O/\1R04a+j9$tWb,Z7F7cE_[jC6gbGG=8VOr+\;jhT^VN)i1kEbPQ$Jg1kbHs22im8i/1$@d=;VEU1$1Pb1JW<]2f8.N`hnX\=:!5qju$BUgqh_mmr/r<alEdnQ;3(/Y_*8`/r&ZE/>XnST]rE7-?RMB(m_ODVdH!n["HlLKW-him3LLB.-Nqt%EAuE)7GeOr]r+Ef`Ml*)(VOi_.fsUU'D[.5#'RMW=(W-<GXSfceZc9Yt^E+Z;HV-0X'uZ\'O<BK=J2*m=Z.>J5dVZ>+TV=3BJ1a9<3`QGD"ST#1DbnmM0,W)0g0OoNU3/3@b9^8%YmTf&P)@]hj5f2fIBok!&_iH+P]f$2^+.'njoXt@rPngk))hKsO-g.-~>endstream
+<< /Type /Page /Parent 9 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+10 0 obj
+<< /Type /Catalog /Pages 9 0 R >>
 endobj
 xref
-0 9
+0 11
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000524 00000 n 
-0000000592 00000 n 
-0000000872 00000 n 
-0000000931 00000 n 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003267 00000 n 
+0000003403 00000 n 
+0000006871 00000 n 
+0000007007 00000 n 
+0000007370 00000 n 
+0000007506 00000 n 
+0000007575 00000 n 
 trailer
-<<
-/ID 
-[<5cd1d1172d7eca82b2feadf7b5fed405><5cd1d1172d7eca82b2feadf7b5fed405>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 6 0 R
-/Root 5 0 R
-/Size 9
->>
+<< /Size 11 /Root 10 0 R >>
 startxref
-1858
+7625
 %%EOF

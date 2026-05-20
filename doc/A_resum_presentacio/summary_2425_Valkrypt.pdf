@@ -1,0 +1,236 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 3838 >>
+stream
+BT
+/F2 18 Tf
+50 780 Td
+(Valkrypt - Presentacio resum) Tj
+-50 -780 Td
+/F1 10 Tf
+50 752 Td
+-50 -752 Td
+/F1 10 Tf
+50 743 Td
+-50 -743 Td
+/F2 14 Tf
+50 734 Td
+(1. Identitat del projecte) Tj
+-50 -734 Td
+/F1 10 Tf
+50 712 Td
+-50 -712 Td
+/F1 10 Tf
+50 703 Td
+(Valkrypt es una aplicacio web de rol narratiu. L'objectiu es que qualsevol usuari pugui) Tj
+-50 -703 Td
+/F1 10 Tf
+50 689 Td
+(entrar des del navegador, crear un compte, escollir un personatge i viure una aventura) Tj
+-50 -689 Td
+/F1 10 Tf
+50 675 Td
+(de fantasia.) Tj
+-50 -675 Td
+/F1 10 Tf
+50 661 Td
+-50 -661 Td
+/F1 10 Tf
+50 652 Td
+(Equip: Javier, Izan, Pariskar i Harsh.) Tj
+-50 -652 Td
+/F1 10 Tf
+50 638 Td
+-50 -638 Td
+/F1 10 Tf
+50 629 Td
+(Curs: 2n DAM.) Tj
+-50 -629 Td
+/F1 10 Tf
+50 615 Td
+-50 -615 Td
+/F1 10 Tf
+50 606 Td
+(Centre: Institut Pedralbes.) Tj
+-50 -606 Td
+/F1 10 Tf
+50 592 Td
+-50 -592 Td
+/F2 14 Tf
+50 583 Td
+(2. Que ofereix Valkrypt) Tj
+-50 -583 Td
+/F1 10 Tf
+50 561 Td
+-50 -561 Td
+/F1 10 Tf
+50 552 Td
+(El projecte combina joc, plataforma web i eines socials. No es nomes una pantalla de) Tj
+-50 -552 Td
+/F1 10 Tf
+50 538 Td
+(joc: tambe inclou registre, verificacio, inici de sessio, perfil, amics, sales) Tj
+-50 -538 Td
+/F1 10 Tf
+50 524 Td
+(multijugador, xat, minijocs i administracio.) Tj
+-50 -524 Td
+/F1 10 Tf
+50 510 Td
+-50 -510 Td
+/F1 10 Tf
+50 501 Td
+(La idea principal es que l'usuari no necessiti coneixements tecnics. Ha de poder seguir) Tj
+-50 -501 Td
+/F1 10 Tf
+50 487 Td
+(un cami clar: entrar, registrar-se, verificar el compte, iniciar sessio, escollir) Tj
+-50 -487 Td
+/F1 10 Tf
+50 473 Td
+(campanya, escollir personatge i jugar.) Tj
+-50 -473 Td
+/F1 10 Tf
+50 459 Td
+-50 -459 Td
+/F2 14 Tf
+50 450 Td
+(3. Resum del funcionament) Tj
+-50 -450 Td
+/F1 10 Tf
+50 428 Td
+-50 -428 Td
+/F1 10 Tf
+50 419 Td
+(Primer l'usuari accedeix a la pagina inicial. Si no te compte, es registra amb correu i) Tj
+-50 -419 Td
+/F1 10 Tf
+50 405 Td
+(contrasenya. Despres rep un codi de verificacio i confirma el compte.) Tj
+-50 -405 Td
+/F1 10 Tf
+50 391 Td
+-50 -391 Td
+/F1 10 Tf
+50 382 Td
+(Quan l'usuari inicia sessio, arriba a la pagina principal. Aquesta pagina funciona com a) Tj
+-50 -382 Td
+/F1 10 Tf
+50 368 Td
+(menu central. Des d'alla pot anar a la partida, als amics, a les sales, al perfil o als) Tj
+-50 -368 Td
+/F1 10 Tf
+50 354 Td
+(minijocs.) Tj
+-50 -354 Td
+/F1 10 Tf
+50 340 Td
+-50 -340 Td
+/F1 10 Tf
+50 331 Td
+(En començar una partida, l'usuari tria una campanya i un personatge. Durant el joc) Tj
+-50 -331 Td
+/F1 10 Tf
+50 317 Td
+(llegeix la historia, observa la situacio i pren decisions.) Tj
+-50 -317 Td
+/F1 10 Tf
+50 303 Td
+-50 -303 Td
+/F2 14 Tf
+50 294 Td
+(4. Tecnologies utilitzades) Tj
+-50 -294 Td
+/F1 10 Tf
+50 272 Td
+-50 -272 Td
+/F1 10 Tf
+50 263 Td
+(Frontend: Vue 3, Vite, Vue Router, Pinia, Axios, SCSS, Three.js i Vanta.) Tj
+-50 -263 Td
+/F1 10 Tf
+50 249 Td
+-50 -249 Td
+/F1 10 Tf
+50 240 Td
+(Backend: Node.js, Express, MongoDB, Mongoose, JWT, bcryptjs, WebSocket i Docker.) Tj
+-50 -240 Td
+/F1 10 Tf
+50 226 Td
+-50 -226 Td
+/F1 10 Tf
+50 217 Td
+(Aquestes tecnologies permeten separar be la part visual, la logica del servidor, la base) Tj
+-50 -217 Td
+/F1 10 Tf
+50 203 Td
+(de dades i la comunicacio en temps real.) Tj
+-50 -203 Td
+/F1 10 Tf
+50 189 Td
+-50 -189 Td
+/F2 14 Tf
+50 180 Td
+(5. Explicacio visual de l'us) Tj
+-50 -180 Td
+/F1 10 Tf
+50 158 Td
+-50 -158 Td
+/F1 10 Tf
+50 149 Td
+(Les captures de pantalla es troben dins la carpeta `captures/`. Mostren el flux) Tj
+-50 -149 Td
+/F1 10 Tf
+50 135 Td
+(principal de l'aplicacio: pantalla inicial, registre, verificacio, menu, seleccio de) Tj
+-50 -135 Td
+/F1 10 Tf
+50 121 Td
+(personatge, joc, amics i sales.) Tj
+-50 -121 Td
+/F1 10 Tf
+50 107 Td
+-50 -107 Td
+/F1 10 Tf
+50 98 Td
+(Aquestes captures serveixen per explicar rapidament el projecte durant la presentacio) Tj
+-50 -98 Td
+/F1 10 Tf
+50 84 Td
+(oral.) Tj
+-50 -84 Td
+/F1 8 Tf
+520 28 Td
+(Pag. 1) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Type /Pages /Kids [4 0 R] /Count 1 >>
+endobj
+6 0 obj
+<< /Type /Catalog /Pages 5 0 R >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000004044 00000 n 
+0000004180 00000 n 
+0000004237 00000 n 
+trailer
+<< /Size 7 /Root 6 0 R >>
+startxref
+4286
+%%EOF
